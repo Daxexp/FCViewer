@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>My Finance Summary</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+    }
+    canvas {
+      max-width: 600px;
+      margin: 20px auto;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <h1>My Finance Summary</h1>
+  <canvas id="categoryChart"></canvas>
+
+  <script>
+    async function fetchCSV(url) {
+      const response = await fetch(url);
+      const data = await response.text();
+      return data;
+    }
+
+    function parseCSV(data) {
+      const lines = data.split('\n').slice(1); // skip header
+      const summary = {};
+
+      for (const line of lines) {
+        const [name, category, amount] = line.split(',').map(v => v.trim());
+
+        if (!category || !amount || isNaN(parseFloat(amount))) continue;
+
+        const key = category.includes("income") ? "Income" : "Expenses";
+
+        if (!summary[category]) summary[category] = 0;
+        summary[category] += parseFloat(amount);
+      }
+
+      return summary;
+    }
+
+    function renderChart(dataObj) {
+      const labels = Object.keys(dataObj);
+      const values = Object.values(dataObj);
+
+      const colors = labels.map(label =>
+        label.toLowerCase().includes("income") ? "#4caf50" : "#f44336"
+      );
+
+      const ctx = document.getElementById("categoryChart").getContext("2d");
+      new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels,
+          datasets: [{
+            label: "Amount (LKR)",
+            data: values,
+            backgroundColor: colors
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            title: {
+              display: true,
+              text: "Income and Expense by Category"
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+    }
+
+    const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR07b8P7SVR9ySREw_L4TLbuXO-jcRxZ6WzmdkCRvQT9kKuHrhvpHs5VKRRHgJ6RO0qZgdSFoc3dD-N/pub?output=csv";
+
+    fetchCSV(csvUrl)
+      .then(parseCSV)
+      .then(renderChart)
+      .catch(err => {
+        console.error("Error loading CSV:", err);
+        alert("Failed to load data.");
+      });
+  </script>
+</body>
+</html>

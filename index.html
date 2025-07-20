@@ -67,8 +67,7 @@
   </table>
 
   <script>
-    // Paste your Google Apps Script URL here
-    const DATA_URL = "https://script.google.com/macros/s/AKfycbxVBVttQK1iH3mfit5YnxUJJYCBF6iCxFGC5GNZzAKweJJ4PMUfhYg_1S1bVORvC76g/exec";
+    const DATA_URL = "https://script.google.com/macros/s/AKfycbyINWFJ32BoDYI6yrO7X1xY-rgYpPe5z71f5ad-cGOTPwPSUNd8EoIww6ubTMMkAF9X/exec";
 
     async function fetchData() {
       const res = await fetch(DATA_URL);
@@ -115,7 +114,7 @@
 
     function populateTransactionsTable(transactions) {
       const tbody = document.querySelector('#transactionsTable tbody');
-      tbody.innerHTML = ""; // clear existing rows
+      tbody.innerHTML = "";
 
       transactions.forEach(tx => {
         const tr = document.createElement('tr');

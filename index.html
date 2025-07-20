@@ -1,87 +1,144 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>My Finance Dashboard</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Finance Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    body { font-family: sans-serif; text-align: center; background: #f0f0f0; padding: 20px; }
-    canvas { max-width: 600px; margin: 20px auto; }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      max-width: 900px;
+    }
+    h1 {
+      text-align: center;
+    }
+    #charts {
+      display: flex;
+      justify-content: space-around;
+      margin-bottom: 40px;
+      flex-wrap: wrap;
+      gap: 30px;
+    }
+    canvas {
+      max-width: 400px;
+      max-height: 400px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      font-size: 14px;
+    }
+    th {
+      background-color: #f4f4f4;
+      text-align: left;
+    }
+    tbody tr:hover {
+      background-color: #f1f1f1;
+    }
   </style>
 </head>
 <body>
 
-<h1>My Finance Summary</h1>
-<canvas id="incomeExpenseChart"></canvas>
-<canvas id="categoryBreakdown"></canvas>
+  <h1>My Finance Dashboard</h1>
 
-<script>
-  async function fetchSheetData() {
-    // Add more published CSV URLs here
-    const urls = [
-      "https://docs.google.com/spreadsheets/d/e/2PACX-1vR07b8P7SVR9ySREw_L4TLbuXO-jcRxZ6WzmdkCRvQT9kKuHrhvpHs5VKRRHgJ6RO0qZgdSFoc3dD-N/pub?output=csv"
-    ];
+  <div id="charts">
+    <canvas id="categoryChart"></canvas>
+  </div>
 
-    let rows = [];
-    for (const url of urls) {
-      const response = await fetch(url);
-      const text = await response.text();
-      const lines = text.split("\n").slice(1);
-      for (const line of lines) {
-        const parts = line.split(",");
-        const category = parts[1]?.trim();
-        const amount = parseFloat(parts[2]);
-        if (!isNaN(amount)) {
-          rows.push({ category, amount });
-        }
+  <h2>Transactions</h2>
+  <table id="transactionsTable">
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Name</th>
+        <th>Category</th>
+        <th>Amount</th>
+        <th>Note</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    // Paste your Google Apps Script URL here
+    const DATA_URL = "https://script.google.com/macros/s/AKfycbxVBVttQK1iH3mfit5YnxUJJYCBF6iCxFGC5GNZzAKweJJ4PMUfhYg_1S1bVORvC76g/exec";
+
+    async function fetchData() {
+      const res = await fetch(DATA_URL);
+      if (!res.ok) {
+        alert("Failed to fetch data");
+        return;
       }
+      const json = await res.json();
+      return json;
     }
 
-    return rows;
-  }
+    function createCategoryChart(summaryData) {
+      const ctx = document.getElementById('categoryChart').getContext('2d');
+      const labels = Object.keys(summaryData);
+      const values = Object.values(summaryData);
+      const colors = [
+        '#FF6384', '#36A2EB', '#FFCE56', '#8BC34A', '#FF7043', '#7E57C2', '#26A69A', '#FFB300', '#8D6E63', '#789262'
+      ];
 
-  function generateCharts(data) {
-    let totalIncome = 0;
-    let totalExpense = 0;
-    let categoryMap = {};
+      new Chart(ctx, {
+        type: 'pie',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: values,
+            backgroundColor: colors.slice(0, labels.length),
+            hoverOffset: 30
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              position: 'right'
+            },
+            title: {
+              display: true,
+              text: 'Spending / Income by Category'
+            }
+          }
+        }
+      });
+    }
 
-    data.forEach(row => {
-      if (row.category.toLowerCase().includes('income')) {
-        totalIncome += row.amount;
-      } else {
-        totalExpense += row.amount;
-        categoryMap[row.category] = (categoryMap[row.category] || 0) + row.amount;
-      }
-    });
+    function populateTransactionsTable(transactions) {
+      const tbody = document.querySelector('#transactionsTable tbody');
+      tbody.innerHTML = ""; // clear existing rows
 
-    new Chart(document.getElementById('incomeExpenseChart'), {
-      type: 'bar',
-      data: {
-        labels: ['Income', 'Expenses'],
-        datasets: [{
-          label: 'Amount',
-          data: [totalIncome, totalExpense],
-          backgroundColor: ['green', 'red']
-        }]
-      }
-    });
+      transactions.forEach(tx => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${tx.date}</td>
+          <td>${tx.name}</td>
+          <td>${tx.category}</td>
+          <td>${tx.amount}</td>
+          <td>${tx.note || ''}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
 
-    new Chart(document.getElementById('categoryBreakdown'), {
-      type: 'pie',
-      data: {
-        labels: Object.keys(categoryMap),
-        datasets: [{
-          label: 'Expenses by Category',
-          data: Object.values(categoryMap),
-          backgroundColor: [
-            '#e6194b','#3cb44b','#ffe119','#4363d8','#f58231','#911eb4','#46f0f0',
-            '#f032e6','#bcf60c','#fabebe','#008080','#e6beff'
-          ]
-        }]
-      }
-    });
-  }
+    async function init() {
+      const data = await fetchData();
+      if (!data) return;
 
-  fetchSheetData().then(generateCharts);
-</script>
+      createCategoryChart(data.summary);
+      populateTransactionsTable(data.transactions);
+    }
+
+    init();
+  </script>
 </body>
 </html>

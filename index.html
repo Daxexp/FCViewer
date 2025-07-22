@@ -5,20 +5,53 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Finance Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
   <style>
+    /* CSS Variables for light/dark mode */
+    :root {
+      --bg-color: #fafafa;
+      --text-color: #333;
+      --primary-color: #2c3e50;
+      --card-bg: #fff;
+      --border-color: #ddd;
+      --income-color: #27ae60;
+      --expense-color: #e74c3c;
+      --table-header-bg: #2c3e50;
+      --table-header-text: #fff;
+      --box-shadow: 0 0 8px rgba(0,0,0,0.1);
+      --hover-bg: #dce6f1;
+    }
+
+    body.dark {
+      --bg-color: #121212;
+      --text-color: #ddd;
+      --primary-color: #a0c4ff;
+      --card-bg: #1e1e1e;
+      --border-color: #444;
+      --income-color: #43a047;
+      --expense-color: #ef5350;
+      --table-header-bg: #263238;
+      --table-header-text: #e0e0e0;
+      --box-shadow: 0 0 10px rgba(255,255,255,0.1);
+      --hover-bg: #37474f;
+    }
+
     body {
       font-family: Arial, sans-serif;
       margin: 20px auto;
       max-width: 900px;
-      background: #fafafa;
-      color: #333;
+      background: var(--bg-color);
+      color: var(--text-color);
       line-height: 1.5;
+      transition: background-color 0.3s ease, color 0.3s ease;
     }
     h1 {
       text-align: center;
       margin-bottom: 30px;
       font-weight: 700;
-      color: #2c3e50;
+      color: var(--primary-color);
+      transition: color 0.3s ease;
     }
     #charts {
       display: flex;
@@ -27,9 +60,10 @@
       margin-bottom: 40px;
       gap: 15px;
       padding: 20px;
-      background-color: #fff;
+      background-color: var(--card-bg);
       border-radius: 12px;
-      box-shadow: 0 0 8px rgba(0,0,0,0.1);
+      box-shadow: var(--box-shadow);
+      transition: background-color 0.3s ease, box-shadow 0.3s ease;
     }
     #filters {
       display: flex;
@@ -43,6 +77,8 @@
       font-size: 16px;
       cursor: pointer;
       user-select: none;
+      color: var(--text-color);
+      transition: color 0.3s ease;
     }
     input[type="checkbox"] {
       transform: scale(1.3);
@@ -57,8 +93,10 @@
     select {
       padding: 6px 12px;
       border-radius: 6px;
-      border: 1.5px solid #ccc;
-      transition: border-color 0.3s ease;
+      border: 1.5px solid var(--border-color);
+      background-color: var(--card-bg);
+      color: var(--text-color);
+      transition: border-color 0.3s ease, background-color 0.3s ease, color 0.3s ease;
     }
     select:hover, select:focus {
       border-color: #3498db;
@@ -66,18 +104,19 @@
     }
     #categoryTotal, #pieTotal {
       font-size: 16px;
-      color: #333;
+      color: var(--text-color);
       margin-top: 12px;
       font-weight: 600;
       user-select: none;
+      transition: color 0.3s ease;
     }
     canvas#categoryChart {
       max-width: 450px !important;
       max-height: 450px !important;
       box-shadow: 0 3px 15px rgba(0,0,0,0.1);
       border-radius: 10px;
-      background-color: #fff;
-      transition: box-shadow 0.3s ease;
+      background-color: var(--card-bg);
+      transition: box-shadow 0.3s ease, background-color 0.3s ease;
     }
     canvas#categoryChart:hover {
       box-shadow: 0 5px 25px rgba(0,0,0,0.15);
@@ -87,11 +126,12 @@
       border-collapse: collapse;
       margin-top: 10px;
       font-size: 15px;
-      background-color: #fff;
+      background-color: var(--card-bg);
       border-radius: 8px;
       overflow: hidden;
-      box-shadow: 0 0 8px rgba(0,0,0,0.1);
-      transition: box-shadow 0.3s ease;
+      box-shadow: var(--box-shadow);
+      transition: box-shadow 0.3s ease, background-color 0.3s ease;
+      color: var(--text-color);
     }
     table:hover {
       box-shadow: 0 0 15px rgba(0,0,0,0.15);
@@ -99,30 +139,33 @@
     thead th {
       position: sticky;
       top: 0;
-      background: #2c3e50;
-      color: white;
+      background: var(--table-header-bg);
+      color: var(--table-header-text);
       padding: 12px 15px;
       z-index: 2;
       font-weight: 600;
       text-align: left;
+      transition: background-color 0.3s ease, color 0.3s ease;
     }
     tbody tr:nth-child(even) {
-      background-color: #f5f7fa;
+      background-color: var(--bg-color);
     }
     tbody tr:hover {
-      background-color: #dce6f1;
+      background-color: var(--hover-bg);
       transition: background-color 0.3s ease;
     }
     td, th {
       padding: 12px 15px;
     }
     .amount-income {
-      color: #27ae60;
+      color: var(--income-color);
       font-weight: 600;
+      transition: color 0.3s ease;
     }
     .amount-expense {
-      color: #e74c3c;
+      color: var(--expense-color);
       font-weight: 600;
+      transition: color 0.3s ease;
     }
     #loading {
       position: fixed;
@@ -132,6 +175,10 @@
       align-items: center;
       justify-content: center;
       z-index: 9999;
+      transition: background-color 0.3s ease;
+    }
+    body.dark #loading {
+      background: rgba(0,0,0,0.7);
     }
     .spinner {
       border: 4px solid #f3f3f3;
@@ -146,6 +193,32 @@
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
+
+    /* Buttons container */
+    #buttonsContainer {
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      padding: 10px 18px;
+      border: none;
+      border-radius: 6px;
+      background-color: #3498db;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+      user-select: none;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    }
+    button:hover {
+      background-color: #217dbb;
+    }
+
     /* Responsive & Mobile */
     @media (max-width: 600px) {
       #filters {
@@ -172,15 +245,15 @@
         left: -9999px;
       }
       tbody tr {
-        border: 1px solid #ddd;
+        border: 1px solid var(--border-color);
         border-radius: 8px;
         margin-bottom: 10px;
         padding: 12px 10px;
-        background: white;
+        background: var(--card-bg);
         box-shadow: 0 1px 5px rgba(0,0,0,0.05);
       }
       tbody tr:hover {
-        background-color: #dce6f1;
+        background-color: var(--hover-bg);
       }
       td {
         border: none;
@@ -188,6 +261,7 @@
         position: relative;
         font-size: 16px;
         text-align: left;
+        color: var(--text-color);
       }
       td::before {
         position: absolute;
@@ -196,7 +270,7 @@
         width: 45%;
         white-space: nowrap;
         font-weight: 600;
-        color: #555;
+        color: var(--text-color);
       }
       td:nth-of-type(1)::before { content: "Date"; }
       td:nth-of-type(2)::before { content: "Name"; }
@@ -219,6 +293,11 @@
 <body>
 
   <h1>Finance Dashboard</h1>
+
+  <div id="buttonsContainer">
+    <button id="toggleDarkModeBtn">🌙 Dark Mode</button>
+    <button id="exportPdfBtn">📄 Export PDF</button>
+  </div>
 
   <div id="charts">
     <div id="filters">
@@ -266,6 +345,8 @@
     const categoryFilterTable = document.getElementById("categoryFilterTable");
     const categoryTotalDiv = document.getElementById("categoryTotal");
     const pieTotalDiv = document.getElementById("pieTotal");
+    const toggleDarkModeBtn = document.getElementById("toggleDarkModeBtn");
+    const exportPdfBtn = document.getElementById("exportPdfBtn");
 
     async function fetchData() {
       try {
@@ -396,6 +477,63 @@
       }
     }
 
+    function toggleDarkMode() {
+      document.body.classList.toggle('dark');
+      if (document.body.classList.contains('dark')) {
+        toggleDarkModeBtn.textContent = '☀️ Light Mode';
+      } else {
+        toggleDarkModeBtn.textContent = '🌙 Dark Mode';
+      }
+    }
+
+    function exportTableToPDF() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+
+      doc.setFontSize(18);
+      doc.text("Finance Dashboard - Transactions", 14, 22);
+
+      // Prepare the columns and rows
+      const columns = [
+        { header: 'Date', dataKey: 'date' },
+        { header: 'Name', dataKey: 'name' },
+        { header: 'Category', dataKey: 'category' },
+        { header: 'Amount', dataKey: 'amount' },
+        { header: 'Note', dataKey: 'note' },
+      ];
+
+      // Filter rows currently visible (to match filter)
+      const rows = [];
+      document.querySelectorAll('#transactionsTable tbody tr').forEach(tr => {
+        if (tr.style.display !== "none") {
+          const tds = tr.querySelectorAll('td');
+          rows.push({
+            date: tds[0].textContent,
+            name: tds[1].textContent,
+            category: tds[2].textContent,
+            amount: tds[3].textContent,
+            note: tds[4].textContent
+          });
+        }
+      });
+
+      if (rows.length === 0) {
+        alert("No transactions to export!");
+        return;
+      }
+
+      doc.autoTable({
+        columns: columns,
+        body: rows,
+        startY: 30,
+        styles: { fontSize: 10 },
+        headStyles: { fillColor: [44, 62, 80], textColor: 255 },
+        alternateRowStyles: { fillColor: [240, 240, 240] },
+      });
+
+      doc.save('Finance_Dashboard_Transactions.pdf');
+    }
+
     async function init() {
       const data = await fetchData();
       if (!data) return;
@@ -420,6 +558,9 @@
     categoryFilterTable.addEventListener("change", () => {
       filterTable(categoryFilterTable.value);
     });
+
+    toggleDarkModeBtn.addEventListener("click", toggleDarkMode);
+    exportPdfBtn.addEventListener("click", exportTableToPDF);
 
     init();
   </script>

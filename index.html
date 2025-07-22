@@ -91,7 +91,12 @@
     }
 
     @media (max-width: 600px) {
-      table, thead, tbody, th, td, tr {
+      table {
+        display: block !important;
+        overflow-x: auto;
+        white-space: nowrap;
+      }
+      thead, tbody, th, td, tr {
         display: block;
       }
       th { display: none; }
@@ -220,7 +225,12 @@
       });
 
       if (includeIncome) {
-        pieTotalDiv.innerHTML = `Total (Including Income): Rs. ${totalAmount.toLocaleString()}`;
+        const income = parseFloat(globalSummary['Income'] || 0);
+        const expenses = Object.entries(globalSummary)
+          .filter(([cat]) => cat.trim().toLowerCase() !== 'income')
+          .reduce((sum, [, val]) => sum + parseFloat(val), 0);
+        const net = income - expenses;
+        pieTotalDiv.innerHTML = `Balance (Income - Expenses): Rs. ${net.toLocaleString()}`;
       } else {
         pieTotalDiv.innerHTML = `Total Expenses: Rs. ${totalAmount.toLocaleString()}`;
       }

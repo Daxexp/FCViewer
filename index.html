@@ -72,7 +72,7 @@
       display: flex;
       flex-wrap: wrap;
       justify-content: space-between;
-      margin-bottom: 20px;
+      margin-bottom: 10px;
       gap: 10px;
       align-items: center;
     }
@@ -82,6 +82,11 @@
 
     #categoryTotal {
       margin-top: 10px;
+      font-weight: bold;
+    }
+
+    #pieTotal {
+      margin-top: 8px;
       font-weight: bold;
     }
 
@@ -119,6 +124,7 @@
       <label><input type="checkbox" id="toggleIncome" /> Include Income</label>
     </div>
     <canvas id="categoryChart"></canvas>
+    <div id="pieTotal"></div>
   </div>
 
   <h2>Transactions</h2>
@@ -158,6 +164,7 @@
     const toggleIncome = document.getElementById("toggleIncome");
     const categoryFilterTable = document.getElementById("categoryFilterTable");
     const categoryTotalDiv = document.getElementById("categoryTotal");
+    const pieTotalDiv = document.getElementById("pieTotal");
 
     async function fetchData() {
       try {
@@ -179,12 +186,14 @@
       ];
       const bgColors = [];
       let colorIndex = 0;
+      let totalAmount = 0;
 
       for (let [category, value] of Object.entries(globalSummary)) {
         const cat = category.trim().toLowerCase();
         if (!includeIncome && cat === 'income') continue;
         labels.push(category);
         values.push(value);
+        totalAmount += parseFloat(value);
         bgColors.push(colors[colorIndex++ % colors.length]);
       }
 
@@ -209,6 +218,12 @@
           }
         }
       });
+
+      if (includeIncome) {
+        pieTotalDiv.innerHTML = `Total (Including Income): Rs. ${totalAmount.toLocaleString()}`;
+      } else {
+        pieTotalDiv.innerHTML = `Total Expenses: Rs. ${totalAmount.toLocaleString()}`;
+      }
     }
 
     function populateCategoryFilters(categories) {
@@ -257,8 +272,10 @@
       rows.forEach(row => {
         if (category === "all" || row.getAttribute("data-category") === category) {
           row.style.display = "";
-          const amountText = row.querySelector("td:nth-child(4)").textContent.replace(/[^\d.-]/g, '');
-          total += parseFloat(amountText);
+          const amountText = row.querySelector("td:nth-child(4)").textContent
+            .replace(/[^\d.,-]/g, '')  // keep digits, comma, minus, dot
+            .replace(/,/g, '');        // remove commas
+          total += parseFloat(amountText) || 0;
         } else {
           row.style.display = "none";
         }
@@ -267,7 +284,7 @@
       if (category.toLowerCase() === "income") {
         categoryTotalDiv.innerHTML = `Total Income: Rs. ${total.toLocaleString()}`;
       } else if (category === "all") {
-        categoryTotalDiv.innerHTML = ""; // no total for all
+        categoryTotalDiv.innerHTML = "";
       } else {
         categoryTotalDiv.innerHTML = `Total: Rs. ${total.toLocaleString()}`;
       }

@@ -42,6 +42,49 @@
     tbody tr:hover {
       background-color: #f1f1f1;
     }
+
+    /* Income/Expense Colors */
+    .income td {
+      color: green;
+    }
+    .expense td {
+      color: red;
+    }
+
+    /* Loading */
+    #loading {
+      text-align: center;
+      font-size: 16px;
+      color: #666;
+      margin-top: 20px;
+    }
+
+    /* Responsive Table */
+    @media (max-width: 600px) {
+      table, thead, tbody, th, td, tr {
+        display: block;
+      }
+      th {
+        display: none;
+      }
+      td {
+        position: relative;
+        padding-left: 50%;
+        border: none;
+        border-bottom: 1px solid #ddd;
+      }
+      td::before {
+        position: absolute;
+        left: 10px;
+        font-weight: bold;
+        white-space: nowrap;
+      }
+      td:nth-of-type(1)::before { content: "Date"; }
+      td:nth-of-type(2)::before { content: "Name"; }
+      td:nth-of-type(3)::before { content: "Category"; }
+      td:nth-of-type(4)::before { content: "Amount"; }
+      td:nth-of-type(5)::before { content: "Note"; }
+    }
   </style>
 </head>
 <body>
@@ -52,6 +95,7 @@
   </div>
 
   <h2>Transactions</h2>
+  <p id="loading">Loading data...</p>
   <table id="transactionsTable">
     <thead>
       <tr>
@@ -69,13 +113,14 @@
     const DATA_URL = "https://script.google.com/macros/s/AKfycbyINWFJ32BoDYI6yrO7X1xY-rgYpPe5z71f5ad-cGOTPwPSUNd8EoIww6ubTMMkAF9X/exec";
 
     async function fetchData() {
-      const res = await fetch(DATA_URL);
-      if (!res.ok) {
-        alert("Failed to fetch data");
-        return;
+      try {
+        const res = await fetch(DATA_URL);
+        if (!res.ok) throw new Error("Failed to fetch data");
+        return await res.json();
+      } catch (err) {
+        alert("Error: " + err.message);
+        return null;
       }
-      const json = await res.json();
-      return json;
     }
 
     function createCategoryChart(summaryData) {
@@ -83,7 +128,8 @@
       const labels = Object.keys(summaryData);
       const values = Object.values(summaryData);
       const colors = [
-        '#FF6384', '#36A2EB', '#FFCE56', '#8BC34A', '#FF7043', '#7E57C2', '#26A69A', '#FFB300', '#8D6E63', '#789262'
+        '#FF6384', '#36A2EB', '#FFCE56', '#8BC34A', '#FF7043',
+        '#7E57C2', '#26A69A', '#FFB300', '#8D6E63', '#789262'
       ];
 
       new Chart(ctx, {
@@ -99,9 +145,7 @@
         options: {
           responsive: true,
           plugins: {
-            legend: {
-              position: 'right'
-            },
+            legend: { position: 'right' },
             title: {
               display: true,
               text: 'Spending / Income by Category'
@@ -115,13 +159,23 @@
       const tbody = document.querySelector('#transactionsTable tbody');
       tbody.innerHTML = "";
 
+      if (transactions.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center">No transactions available</td></tr>`;
+        return;
+      }
+
+      // Sort by date descending
+      transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+
       transactions.forEach(tx => {
         const tr = document.createElement('tr');
+        const amount = parseFloat(tx.amount);
+        tr.className = amount >= 0 ? 'income' : 'expense';
         tr.innerHTML = `
           <td>${tx.date}</td>
           <td>${tx.name}</td>
           <td>${tx.category}</td>
-          <td>${tx.amount}</td>
+          <td>${amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</td>
           <td>${tx.note || ''}</td>
         `;
         tbody.appendChild(tr);
@@ -130,8 +184,8 @@
 
     async function init() {
       const data = await fetchData();
+      document.getElementById('loading').style.display = 'none';
       if (!data) return;
-
       createCategoryChart(data.summary);
       populateTransactionsTable(data.transactions);
     }

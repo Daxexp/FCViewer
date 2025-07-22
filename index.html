@@ -8,7 +8,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
   <style>
-    /* CSS Variables for light/dark mode */
     :root {
       --bg-color: #fafafa;
       --text-color: #333;
@@ -45,6 +44,7 @@
       color: var(--text-color);
       line-height: 1.5;
       transition: background-color 0.3s ease, color 0.3s ease;
+      position: relative;
     }
     h1 {
       text-align: center;
@@ -194,29 +194,64 @@
       100% { transform: rotate(360deg); }
     }
 
-    /* Buttons container */
+    /* Small icon buttons container top-right */
     #buttonsContainer {
+      position: fixed;
+      top: 15px;
+      right: 15px;
       display: flex;
-      justify-content: center;
-      gap: 15px;
-      margin-bottom: 20px;
-      flex-wrap: wrap;
+      gap: 10px;
+      z-index: 10000;
     }
 
-    button {
-      padding: 10px 18px;
-      border: none;
-      border-radius: 6px;
+    button.icon-btn {
+      background: var(--card-bg);
+      border: 1.5px solid var(--border-color);
+      color: var(--text-color);
+      border-radius: 8px;
+      width: 38px;
+      height: 38px;
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition:
+        background-color 0.3s ease,
+        color 0.3s ease,
+        border-color 0.3s ease,
+        transform 0.15s ease;
+      user-select: none;
+      box-shadow: var(--box-shadow);
+    }
+    button.icon-btn:hover {
       background-color: #3498db;
       color: white;
-      font-size: 16px;
-      cursor: pointer;
-      transition: background-color 0.3s ease;
-      user-select: none;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      border-color: #217dbb;
+      transform: scale(1.1);
+      box-shadow: 0 0 10px rgba(52, 152, 219, 0.6);
     }
-    button:hover {
-      background-color: #217dbb;
+
+    /* Tooltip styling */
+    button.icon-btn[title] {
+      position: relative;
+    }
+    button.icon-btn[title]:hover::after {
+      content: attr(title);
+      position: absolute;
+      top: -30px;
+      right: 50%;
+      transform: translateX(50%);
+      background: rgba(0,0,0,0.75);
+      color: #fff;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 1;
+      transition: opacity 0.3s ease;
+      z-index: 10001;
     }
 
     /* Responsive & Mobile */
@@ -295,8 +330,8 @@
   <h1>Finance Dashboard</h1>
 
   <div id="buttonsContainer">
-    <button id="toggleDarkModeBtn">🌙 Dark Mode</button>
-    <button id="exportPdfBtn">📄 Export PDF</button>
+    <button id="toggleDarkModeBtn" class="icon-btn" title="Toggle Dark Mode">🌙</button>
+    <button id="exportPdfBtn" class="icon-btn" title="Export Transactions as PDF">📄</button>
   </div>
 
   <div id="charts">
@@ -480,9 +515,11 @@
     function toggleDarkMode() {
       document.body.classList.toggle('dark');
       if (document.body.classList.contains('dark')) {
-        toggleDarkModeBtn.textContent = '☀️ Light Mode';
+        toggleDarkModeBtn.textContent = '☀️';
+        toggleDarkModeBtn.title = 'Switch to Light Mode';
       } else {
-        toggleDarkModeBtn.textContent = '🌙 Dark Mode';
+        toggleDarkModeBtn.textContent = '🌙';
+        toggleDarkModeBtn.title = 'Switch to Dark Mode';
       }
     }
 
@@ -490,22 +527,20 @@
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
 
-      doc.setFontSize(18);
-      doc.text("Finance Dashboard - Transactions", 14, 22);
+      doc.setFontSize(16);
+      doc.text("Finance Dashboard Transactions", 14, 20);
 
-      // Prepare the columns and rows
       const columns = [
         { header: 'Date', dataKey: 'date' },
         { header: 'Name', dataKey: 'name' },
         { header: 'Category', dataKey: 'category' },
         { header: 'Amount', dataKey: 'amount' },
-        { header: 'Note', dataKey: 'note' },
+        { header: 'Note', dataKey: 'note' }
       ];
 
-      // Filter rows currently visible (to match filter)
       const rows = [];
       document.querySelectorAll('#transactionsTable tbody tr').forEach(tr => {
-        if (tr.style.display !== "none") {
+        if (tr.style.display !== 'none') {
           const tds = tr.querySelectorAll('td');
           rows.push({
             date: tds[0].textContent,

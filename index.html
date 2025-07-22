@@ -112,10 +112,7 @@
   <div id="charts">
     <div id="filters">
       <label><input type="checkbox" id="toggleIncome" /> Include Income</label>
-      <label>
-        Filter Pie by Category:
-        <select id="categoryFilterPie" multiple size="4"></select>
-      </label>
+      <select id="categoryFilterPie" multiple size="4"></select>
     </div>
     <canvas id="categoryChart"></canvas>
   </div>
@@ -167,24 +164,14 @@
       }
     }
 
-    function formatDateLabel(dateStr) {
-  const date = new Date(dateStr);
-  const day = date.getDate();
-  const weekday = date.toLocaleDateString('en-US', { weekday: 'short' });
-
-  function nthSuffix(n) {
-    if (n > 3 && n < 21) return 'th';
-    switch (n % 10) {
-      case 1: return 'st';
-      case 2: return 'nd';
-      case 3: return 'rd';
-      default: return 'th';
-    }
-  }
-
-  return `${day}${nthSuffix(day)} ${weekday}`;
-}
-
+    function nthSuffix(day) {
+      if (day > 3 && day < 21) return 'th';
+      switch (day % 10) {
+        case 1: return 'st';
+        case 2: return 'nd';
+        case 3: return 'rd';
+        default: return 'th';
+      }
     }
 
     function formatDateLabel(dateStr) {

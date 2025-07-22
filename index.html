@@ -43,17 +43,35 @@
       background-color: #f1f1f1;
     }
 
-    /* Amount Color */
+    /* Amount Colors and Bold */
     .amount-income {
       color: green;
+      font-weight: bold;
+    }
+    .amount-expense {
+      color: red;
+      font-weight: bold;
     }
 
-    /* Loading */
+    /* Loading Animation */
     #loading {
       text-align: center;
-      font-size: 16px;
-      color: #666;
-      margin-top: 20px;
+      margin-top: 30px;
+    }
+
+    .spinner {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #3498db;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      display: inline-block;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
     }
 
     /* Responsive Table */
@@ -92,8 +110,9 @@
   </div>
 
   <h2>Transactions</h2>
-  <p id="loading">Loading data...</p>
-  <table id="transactionsTable">
+  <div id="loading"><div class="spinner"></div></div>
+
+  <table id="transactionsTable" style="display:none;">
     <thead>
       <tr>
         <th>Date</th>
@@ -122,15 +141,21 @@
 
     function createCategoryChart(summaryData) {
       const ctx = document.getElementById('categoryChart').getContext('2d');
-      const labels = Object.keys(summaryData);
-      const values = Object.values(summaryData);
+      const labels = [];
+      const values = [];
       const colors = [
         '#FF6384', '#36A2EB', '#FFCE56', '#8BC34A', '#FF7043',
         '#7E57C2', '#26A69A', '#FFB300', '#8D6E63', '#789262'
       ];
+      const bgColors = [];
 
-      // Hide "Income" by default
-      const hiddenStates = labels.map(label => label.toLowerCase() === "income");
+      let colorIndex = 0;
+      for (let [category, value] of Object.entries(summaryData)) {
+        if (category.toLowerCase() === 'income') continue; // Skip Income
+        labels.push(category);
+        values.push(value);
+        bgColors.push(colors[colorIndex++ % colors.length]);
+      }
 
       new Chart(ctx, {
         type: 'pie',
@@ -138,35 +163,18 @@
           labels: labels,
           datasets: [{
             data: values,
-            backgroundColor: colors.slice(0, labels.length),
+            backgroundColor: bgColors
           }]
         },
         options: {
           responsive: true,
           plugins: {
             legend: {
-              position: 'right',
-              labels: {
-                generateLabels: function(chart) {
-                  const original = Chart.overrides.pie.plugins.legend.labels.generateLabels;
-                  const labels = original(chart);
-                  labels.forEach((label, index) => {
-                    label.hidden = hiddenStates[index];
-                  });
-                  return labels;
-                }
-              },
-              onClick: function(e, legendItem, legend) {
-                const index = legendItem.index;
-                const ci = legend.chart;
-                const meta = ci.getDatasetMeta(0);
-                meta.data[index].hidden = !meta.data[index].hidden;
-                ci.update();
-              }
+              position: 'right'
             },
             title: {
               display: true,
-              text: 'Spending / Income by Category'
+              text: 'Spending by Category (Income Hidden)'
             }
           }
         }
@@ -187,7 +195,9 @@
       transactions.forEach(tx => {
         const tr = document.createElement('tr');
         const amount = parseFloat(tx.amount);
-        const amountClass = tx.category.trim().toLowerCase() === 'income' ? 'amount-income' : '';
+        const cat = tx.category.trim().toLowerCase();
+        const isIncome = cat === 'income';
+        const amountClass = isIncome ? 'amount-income' : 'amount-expense';
         tr.innerHTML = `
           <td>${tx.date}</td>
           <td>${tx.name}</td>
@@ -202,7 +212,9 @@
     async function init() {
       const data = await fetchData();
       document.getElementById('loading').style.display = 'none';
+      document.getElementById('transactionsTable').style.display = 'table';
       if (!data) return;
+
       createCategoryChart(data.summary);
       populateTransactionsTable(data.transactions);
     }

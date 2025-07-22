@@ -112,7 +112,6 @@
   <div id="charts">
     <div id="filters">
       <label><input type="checkbox" id="toggleIncome" /> Include Income</label>
-      <select id="categoryFilterPie" multiple size="4" aria-label="Category Filter for Pie Chart"></select>
     </div>
     <canvas id="categoryChart"></canvas>
   </div>
@@ -150,7 +149,6 @@
     let globalTransactions = [];
 
     const toggleIncome = document.getElementById("toggleIncome");
-    const categoryFilterPie = document.getElementById("categoryFilterPie");
     const categoryFilterTable = document.getElementById("categoryFilterTable");
 
     async function fetchData() {
@@ -164,7 +162,7 @@
       }
     }
 
-    function renderPieChart(includeIncome = false, selectedCategories = []) {
+    function renderPieChart(includeIncome = false) {
       const labels = [];
       const values = [];
       const colors = [
@@ -176,9 +174,7 @@
 
       for (let [category, value] of Object.entries(globalSummary)) {
         const cat = category.trim().toLowerCase();
-        if ((!includeIncome && cat === 'income') || (selectedCategories.length > 0 && !selectedCategories.includes(category))) {
-          continue;
-        }
+        if (!includeIncome && cat === 'income') continue;
         labels.push(category);
         values.push(value);
         bgColors.push(colors[colorIndex++ % colors.length]);
@@ -208,18 +204,12 @@
     }
 
     function populateCategoryFilters(categories) {
-      categoryFilterPie.innerHTML = "";
       categoryFilterTable.innerHTML = `<option value="all">All</option>`;
       categories.forEach(cat => {
-        const opt1 = document.createElement('option');
-        opt1.value = cat;
-        opt1.textContent = cat;
-        categoryFilterPie.appendChild(opt1);
-
-        const opt2 = document.createElement('option');
-        opt2.value = cat;
-        opt2.textContent = cat;
-        categoryFilterTable.appendChild(opt2);
+        const opt = document.createElement('option');
+        opt.value = cat;
+        opt.textContent = cat;
+        categoryFilterTable.appendChild(opt);
       });
     }
 
@@ -276,18 +266,12 @@
       const categories = Object.keys(globalSummary);
       populateCategoryFilters(categories);
 
-      renderPieChart(false);
+      renderPieChart(toggleIncome.checked);
       populateTransactionsTable(globalTransactions);
     }
 
     toggleIncome.addEventListener("change", () => {
-      const selected = [...categoryFilterPie.selectedOptions].map(o => o.value);
-      renderPieChart(toggleIncome.checked, selected);
-    });
-
-    categoryFilterPie.addEventListener("change", () => {
-      const selected = [...categoryFilterPie.selectedOptions].map(o => o.value);
-      renderPieChart(toggleIncome.checked, selected);
+      renderPieChart(toggleIncome.checked);
     });
 
     categoryFilterTable.addEventListener("change", () => {

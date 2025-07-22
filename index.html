@@ -80,6 +80,11 @@
       font-size: 14px;
     }
 
+    #categoryTotal {
+      margin-top: 10px;
+      font-weight: bold;
+    }
+
     @media (max-width: 600px) {
       table, thead, tbody, th, td, tr {
         display: block;
@@ -126,6 +131,8 @@
     </label>
   </div>
 
+  <div id="categoryTotal"></div>
+
   <div id="loading"><div class="spinner"></div></div>
 
   <table id="transactionsTable" style="display:none;">
@@ -150,6 +157,7 @@
 
     const toggleIncome = document.getElementById("toggleIncome");
     const categoryFilterTable = document.getElementById("categoryFilterTable");
+    const categoryTotalDiv = document.getElementById("categoryTotal");
 
     async function fetchData() {
       try {
@@ -251,6 +259,21 @@
           row.style.display = "none";
         }
       });
+
+      // Show sum if Income is selected
+      let total = 0;
+      rows.forEach(row => {
+        if (row.style.display !== "none") {
+          const amountText = row.querySelector("td:nth-child(4)").textContent.replace(/[^\d.-]/g, '');
+          total += parseFloat(amountText);
+        }
+      });
+
+      if (category.toLowerCase() === "income") {
+        categoryTotalDiv.innerHTML = `Total Income: Rs. ${total.toLocaleString()}`;
+      } else {
+        categoryTotalDiv.innerHTML = "";
+      }
     }
 
     async function init() {

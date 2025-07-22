@@ -16,10 +16,9 @@
     }
     #charts {
       display: flex;
-      justify-content: space-around;
+      flex-direction: column;
+      align-items: center;
       margin-bottom: 40px;
-      flex-wrap: wrap;
-      gap: 30px;
     }
     canvas {
       max-width: 400px;
@@ -28,7 +27,7 @@
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 20px;
+      margin-top: 10px;
     }
     th, td {
       border: 1px solid #ddd;
@@ -42,18 +41,13 @@
     tbody tr:hover {
       background-color: #f1f1f1;
     }
-
-    /* Amount Colors and Bold */
     .amount-income {
       color: green;
-      font-weight: bold;
     }
     .amount-expense {
       color: red;
-      font-weight: bold;
     }
 
-    /* Loading Animation */
     #loading {
       text-align: center;
       margin-top: 30px;
@@ -74,14 +68,23 @@
       100% { transform: rotate(360deg); }
     }
 
-    /* Responsive Table */
+    #filters {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      gap: 10px;
+      align-items: center;
+    }
+    select, label {
+      font-size: 14px;
+    }
+
     @media (max-width: 600px) {
       table, thead, tbody, th, td, tr {
         display: block;
       }
-      th {
-        display: none;
-      }
+      th { display: none; }
       td {
         position: relative;
         padding-left: 50%;
@@ -105,11 +108,28 @@
 <body>
 
   <h1>Finance Dashboard</h1>
+
   <div id="charts">
+    <div id="filters">
+      <label><input type="checkbox" id="toggleIncome" /> Include Income</label>
+      <label>
+        Filter Pie by Category:
+        <select id="categoryFilterPie" multiple size="4"></select>
+      </label>
+    </div>
     <canvas id="categoryChart"></canvas>
   </div>
 
   <h2>Transactions</h2>
+  <div id="filters">
+    <label>
+      Filter Table by Category:
+      <select id="categoryFilterTable">
+        <option value="all">All</option>
+      </select>
+    </label>
+  </div>
+
   <div id="loading"><div class="spinner"></div></div>
 
   <table id="transactionsTable" style="display:none;">
@@ -128,6 +148,14 @@
   <script>
     const DATA_URL = "https://script.google.com/macros/s/AKfycbyINWFJ32BoDYI6yrO7X1xY-rgYpPe5z71f5ad-cGOTPwPSUNd8EoIww6ubTMMkAF9X/exec";
 
+    let chartInstance;
+    let globalSummary = {};
+    let globalTransactions = [];
+
+    const toggleIncome = document.getElementById("toggleIncome");
+    const categoryFilterPie = document.getElementById("categoryFilterPie");
+    const categoryFilterTable = document.getElementById("categoryFilterTable");
+
     async function fetchData() {
       try {
         const res = await fetch(DATA_URL);
@@ -139,8 +167,24 @@
       }
     }
 
-    function createCategoryChart(summaryData) {
-      const ctx = document.getElementById('categoryChart').getContext('2d');
+    function nthSuffix(day) {
+      if (day > 3 && day < 21) return 'th';
+      switch (day % 10) {
+        case 1: return 'st';
+        case 2: return 'nd';
+        case 3: return 'rd';
+        default: return 'th';
+      }
+    }
+
+    function formatDateLabel(dateStr) {
+      const date = new Date(dateStr);
+      const day = date.getDate();
+      const weekday = date.toLocaleDateString('en-US', { weekday: 'short' });
+      return `${day}${nthSuffix(day)} ${weekday}`;
+    }
+
+    function renderPieChart(includeIncome = false, selectedCategories = []) {
       const labels = [];
       const values = [];
       const colors = [
@@ -148,16 +192,20 @@
         '#7E57C2', '#26A69A', '#FFB300', '#8D6E63', '#789262'
       ];
       const bgColors = [];
-
       let colorIndex = 0;
-      for (let [category, value] of Object.entries(summaryData)) {
-        if (category.toLowerCase() === 'income') continue; // Skip Income
+
+      for (let [category, value] of Object.entries(globalSummary)) {
+        const cat = category.trim().toLowerCase();
+        if ((!includeIncome && cat === 'income') || (selectedCategories.length > 0 && !selectedCategories.includes(category))) {
+          continue;
+        }
         labels.push(category);
         values.push(value);
         bgColors.push(colors[colorIndex++ % colors.length]);
       }
 
-      new Chart(ctx, {
+      if (chartInstance) chartInstance.destroy();
+      chartInstance = new Chart(document.getElementById('categoryChart').getContext('2d'), {
         type: 'pie',
         data: {
           labels: labels,
@@ -169,15 +217,29 @@
         options: {
           responsive: true,
           plugins: {
-            legend: {
-              position: 'right'
-            },
+            legend: { position: 'right' },
             title: {
               display: true,
-              text: 'Spending by Category (Income Hidden)'
+              text: 'Spending by Category'
             }
           }
         }
+      });
+    }
+
+    function populateCategoryFilters(categories) {
+      categoryFilterPie.innerHTML = "";
+      categoryFilterTable.innerHTML = `<option value="all">All</option>`;
+      categories.forEach(cat => {
+        const opt1 = document.createElement('option');
+        opt1.value = cat;
+        opt1.textContent = cat;
+        categoryFilterPie.appendChild(opt1);
+
+        const opt2 = document.createElement('option');
+        opt2.value = cat;
+        opt2.textContent = cat;
+        categoryFilterTable.appendChild(opt2);
       });
     }
 
@@ -198,8 +260,9 @@
         const cat = tx.category.trim().toLowerCase();
         const isIncome = cat === 'income';
         const amountClass = isIncome ? 'amount-income' : 'amount-expense';
+        tr.setAttribute("data-category", tx.category);
         tr.innerHTML = `
-          <td>${tx.date}</td>
+          <td>${formatDateLabel(tx.date)}</td>
           <td>${tx.name}</td>
           <td>${tx.category}</td>
           <td class="${amountClass}">Rs. ${amount.toLocaleString()}</td>
@@ -209,15 +272,47 @@
       });
     }
 
+    function filterTable(category) {
+      const rows = document.querySelectorAll('#transactionsTable tbody tr');
+      rows.forEach(row => {
+        if (category === "all" || row.getAttribute("data-category") === category) {
+          row.style.display = "";
+        } else {
+          row.style.display = "none";
+        }
+      });
+    }
+
     async function init() {
       const data = await fetchData();
-      document.getElementById('loading').style.display = 'none';
-      document.getElementById('transactionsTable').style.display = 'table';
       if (!data) return;
 
-      createCategoryChart(data.summary);
-      populateTransactionsTable(data.transactions);
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('transactionsTable').style.display = 'table';
+
+      globalSummary = data.summary;
+      globalTransactions = data.transactions;
+
+      const categories = Object.keys(globalSummary);
+      populateCategoryFilters(categories);
+
+      renderPieChart(false);
+      populateTransactionsTable(globalTransactions);
     }
+
+    toggleIncome.addEventListener("change", () => {
+      const selected = [...categoryFilterPie.selectedOptions].map(o => o.value);
+      renderPieChart(toggleIncome.checked, selected);
+    });
+
+    categoryFilterPie.addEventListener("change", () => {
+      const selected = [...categoryFilterPie.selectedOptions].map(o => o.value);
+      renderPieChart(toggleIncome.checked, selected);
+    });
+
+    categoryFilterTable.addEventListener("change", () => {
+      filterTable(categoryFilterTable.value);
+    });
 
     init();
   </script>

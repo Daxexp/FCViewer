@@ -1,188 +1,166 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>MyFinance Buddy</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <meta charset="UTF-8">
+  <title>Transaction Pie Chart</title>
+  <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
-      opacity: 0;
-      animation: fadeIn 1s ease-in-out forwards;
-    }
-
-    @keyframes fadeIn {
-      to {
-        opacity: 1;
-      }
-    }
-
     table {
-      width: 100%;
       border-collapse: collapse;
+      width: 100%;
       margin-top: 20px;
     }
-
     th, td {
+      border: 1px solid #ccc;
       padding: 8px;
       text-align: left;
-      border: 1px solid #ccc;
     }
-
-    td.amount {
-      font-weight: normal;
-    }
-
-    .amount.green {
+    .amount-income {
       color: green;
     }
-
-    .amount.red {
+    .amount-expense {
       color: red;
     }
-
-    .dropdown-btn {
-      margin-top: 20px;
-      padding: 10px 20px;
-      background-color: #007BFF;
-      color: white;
-      border: none;
-      cursor: pointer;
-      border-radius: 5px;
-    }
-
-    .dropdown-content {
-      display: none;
-      margin-top: 10px;
+    #loading {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      z-index: 9999;
     }
   </style>
 </head>
 <body>
-  <h1>MyFinance Buddy</h1>
+  <div id="loading">Loading...</div>
 
-  <canvas id="pieChart" width="400" height="200"></canvas>
+  <h2>Transactions</h2>
+  <select id="categoryFilter">
+    <option value="">All</option>
+  </select>
 
-  <button class="dropdown-btn" onclick="toggleTransactions()">Toggle Transactions</button>
-
-  <div class="dropdown-content" id="transactionsTableContainer">
-    <table>
-      <thead>
-        <tr>
-          <th>Date</th>
-          <th>Description</th>
-          <th>Category</th>
-          <th>Amount (Rs.)</th>
-        </tr>
-      </thead>
-      <tbody id="transactionsBody">
-        <!-- Data will be inserted here -->
-      </tbody>
-    </table>
-  </div>
+  <div id="piechart" style="width: 700px; height: 400px;"></div>
+  <table id="transactionTable">
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Description</th>
+        <th>Category</th>
+        <th>Amount (Rs.)</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
 
   <script>
-    const data = [
-      { date: '2025-07-21', description: 'Salary', category: 'Income', amount: 50000 },
-      { date: '2025-07-21', description: 'Lunch', category: 'Food', amount: 1200 },
-      { date: '2025-07-21', description: 'Bus Fare', category: 'Transportation', amount: 300 },
-      { date: '2025-07-21', description: 'Mobile Bill', category: 'Payments Mobile&Data', amount: 1500 },
-      { date: '2025-07-20', description: 'Rent', category: 'Housing/Board', amount: 25000 }
+    // Loading screen fade-out animation
+    window.addEventListener('load', () => {
+      const loading = document.getElementById('loading');
+      loading.style.transition = 'opacity 0.8s ease';
+      loading.style.opacity = 0;
+      setTimeout(() => loading.style.display = 'none', 800);
+    });
+
+    const transactions = [
+      { date: '2025-07-21', description: 'Salary', category: 'Income', amount: 10000 },
+      { date: '2025-07-20', description: 'Lunch', category: 'Food', amount: 500 },
+      { date: '2025-07-19', description: 'Bus Ticket', category: 'Transportation', amount: 100 },
+      { date: '2025-07-18', description: 'Internet Bill', category: 'Payments Mobile&Data', amount: 1200 },
+      { date: '2025-07-17', description: 'House Rent', category: 'Housing/Board', amount: 7500 }
     ];
 
-    function getOrdinalSuffix(n) {
-      if (n > 3 && n < 21) return 'th';
-      switch (n % 10) {
-        case 1: return 'st';
-        case 2: return 'nd';
-        case 3: return 'rd';
-        default: return 'th';
-      }
+    google.charts.load('current', { packages: ['corechart'] });
+    google.charts.setOnLoadCallback(drawChart);
+
+    function getCategoryColor(category) {
+      return category === 'Income' ? 'amount-income' : 'amount-expense';
     }
 
     function formatDateString(dateString) {
       const date = new Date(dateString);
       const day = date.getDate();
       const weekday = date.toLocaleDateString('en-US', { weekday: 'short' });
-      return `${day}${getOrdinalSuffix(day)} ${weekday}`;
-    }
 
-    function toggleTransactions() {
-      const container = document.getElementById("transactionsTableContainer");
-      container.style.display = container.style.display === "none" ? "block" : "none";
-    }
-
-    const transactionsBody = document.getElementById('transactionsBody');
-
-    data.forEach(entry => {
-      const row = document.createElement('tr');
-      const formattedDate = formatDateString(entry.date);
-
-      row.innerHTML = `
-        <td>${formattedDate}</td>
-        <td>${entry.description}</td>
-        <td>${entry.category}</td>
-        <td class="amount ${entry.category === 'Income' ? 'green' : 'red'}">Rs. ${entry.amount}</td>
-      `;
-      transactionsBody.appendChild(row);
-    });
-
-    const categoryTotals = {};
-    data.forEach(entry => {
-      if (!categoryTotals[entry.category]) {
-        categoryTotals[entry.category] = 0;
-      }
-      categoryTotals[entry.category] += entry.amount;
-    });
-
-    const pieLabels = Object.keys(categoryTotals);
-    const pieData = Object.values(categoryTotals);
-    const pieColors = pieLabels.map(label => label === 'Income' ? 'green' : 'red');
-
-    const ctx = document.getElementById('pieChart').getContext('2d');
-
-    const chart = new Chart(ctx, {
-      type: 'pie',
-      data: {
-        labels: pieLabels,
-        datasets: [{
-          data: pieData,
-          backgroundColor: pieColors
-        }]
-      },
-      options: {
-        plugins: {
-          legend: {
-            onClick: function (e, legendItem, legend) {
-              const index = legendItem.index;
-              const ci = legend.chart;
-              const meta = ci.getDatasetMeta(0);
-              meta.data[index].hidden = !meta.data[index].hidden;
-              ci.update();
-            },
-            labels: {
-              generateLabels: function (chart) {
-                const data = chart.data;
-                if (data.labels.length && data.datasets.length) {
-                  return data.labels.map((label, i) => {
-                    const hidden = chart.getDatasetMeta(0).data[i].hidden;
-                    return {
-                      text: label,
-                      fillStyle: chart.data.datasets[0].backgroundColor[i],
-                      strokeStyle: '#fff',
-                      hidden: i === 0, // index 0 assumed to be "Income"
-                      index: i
-                    };
-                  });
-                }
-                return [];
-              }
-            }
-          }
+      const suffix = (d) => {
+        if (d > 3 && d < 21) return 'th';
+        switch (d % 10) {
+          case 1: return 'st';
+          case 2: return 'nd';
+          case 3: return 'rd';
+          default: return 'th';
         }
-      }
-    });
+      };
+
+      return `${day}${suffix(day)} ${weekday}`;
+    }
+
+    function drawChart() {
+      const chartData = google.visualization.arrayToDataTable([
+        ['Category', 'Amount'],
+        ...transactions.map(t => [t.category, t.amount])
+      ]);
+
+      const options = {
+        title: 'Transaction Breakdown',
+        pieSliceText: 'value',
+        slices: transactions.map((t, i) => t.category === 'Income' ? { color: '#ccc', visibleInLegend: true, offset: 0.1 } : null)
+      };
+
+      const chart = new google.visualization.PieChart(document.getElementById('piechart'));
+
+      const view = new google.visualization.DataView(chartData);
+      const filteredRows = chartData.getFilteredRows([{ column: 0, value: 'Income' }]);
+      view.hideRows(filteredRows); // Hide Income by default
+
+      chart.draw(view, options);
+
+      // Filter dropdown
+      const uniqueCategories = [...new Set(transactions.map(t => t.category))];
+      const filter = document.getElementById('categoryFilter');
+      uniqueCategories.forEach(category => {
+        const option = document.createElement('option');
+        option.value = category;
+        option.textContent = category;
+        filter.appendChild(option);
+      });
+
+      filter.addEventListener('change', () => {
+        const selected = filter.value;
+        const filteredData = [['Category', 'Amount']];
+        transactions.forEach(t => {
+          if (!selected || t.category === selected) {
+            filteredData.push([t.category, t.amount]);
+          }
+        });
+
+        const newData = google.visualization.arrayToDataTable(filteredData);
+        chart.draw(newData, options);
+      });
+    }
+
+    function renderTable() {
+      const tbody = document.querySelector('#transactionTable tbody');
+      transactions.forEach(row => {
+        const tr = document.createElement('tr');
+
+        const formattedDate = formatDateString(row.date);
+
+        tr.innerHTML = `
+          <td>${formattedDate}</td>
+          <td>${row.description}</td>
+          <td>${row.category}</td>
+          <td class="${getCategoryColor(row.category)}">Rs. ${row.amount}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    renderTable();
   </script>
 </body>
 </html>

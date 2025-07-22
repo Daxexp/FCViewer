@@ -252,27 +252,24 @@
 
     function filterTable(category) {
       const rows = document.querySelectorAll('#transactionsTable tbody tr');
+      let total = 0;
+
       rows.forEach(row => {
         if (category === "all" || row.getAttribute("data-category") === category) {
           row.style.display = "";
+          const amountText = row.querySelector("td:nth-child(4)").textContent.replace(/[^\d.-]/g, '');
+          total += parseFloat(amountText);
         } else {
           row.style.display = "none";
         }
       });
 
-      // Show sum if Income is selected
-      let total = 0;
-      rows.forEach(row => {
-        if (row.style.display !== "none") {
-          const amountText = row.querySelector("td:nth-child(4)").textContent.replace(/[^\d.-]/g, '');
-          total += parseFloat(amountText);
-        }
-      });
-
       if (category.toLowerCase() === "income") {
         categoryTotalDiv.innerHTML = `Total Income: Rs. ${total.toLocaleString()}`;
+      } else if (category === "all") {
+        categoryTotalDiv.innerHTML = ""; // no total for all
       } else {
-        categoryTotalDiv.innerHTML = "";
+        categoryTotalDiv.innerHTML = `Total: Rs. ${total.toLocaleString()}`;
       }
     }
 

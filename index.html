@@ -174,12 +174,11 @@
       }
     }
 
-    function formatDateLabel(dateStr) {
-      const date = new Date(dateStr);
-      const day = date.getDate();
-      const weekday = date.toLocaleDateString('en-US', { weekday: 'short' });
-      return `${weekday} ${day}${nthSuffix(day)}`;
-    }
+   function formatDateLabel(dateStr) {
+  const date = new Date(dateStr);
+  const day = date.getDate();
+  return `${day}${nthSuffix(day)}`;
+}
 
     function renderPieChart(includeIncome = false, selectedCategories = []) {
       const labels = [];

@@ -109,6 +109,17 @@
 
   <h1>Finance Dashboard</h1>
 
+  <div id="charts">
+    <div id="filters">
+      <label><input type="checkbox" id="toggleIncome" /> Include Income</label>
+      <label>
+        Filter Pie by Category:
+        <select id="categoryFilterPie" multiple size="4"></select>
+      </label>
+    </div>
+    <canvas id="categoryChart"></canvas>
+  </div>
+
   <h2>Transactions</h2>
   <div id="filters">
     <label>
@@ -154,7 +165,16 @@
         alert("Error: " + err.message);
         return null;
       }
-  
+    }
+
+    function nthSuffix(day) {
+      if (day > 3 && day < 21) return 'th';
+      switch (day % 10) {
+        case 1: return 'st';
+        case 2: return 'nd';
+        case 3: return 'rd';
+        default: return 'th';
+      }
     }
 
     function formatDateLabel(dateStr) {

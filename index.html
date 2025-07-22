@@ -267,26 +267,21 @@
 
     function filterTable(category) {
       const rows = document.querySelectorAll('#transactionsTable tbody tr');
-      let total = 0;
 
       rows.forEach(row => {
-        if (category === "all" || row.getAttribute("data-category") === category) {
-          row.style.display = "";
-          const amountText = row.querySelector("td:nth-child(4)").textContent
-            .replace(/[^\d.,-]/g, '')  // keep digits, comma, minus, dot
-            .replace(/,/g, '');        // remove commas
-          total += parseFloat(amountText) || 0;
-        } else {
-          row.style.display = "none";
-        }
+        row.style.display = (category === "all" || row.getAttribute("data-category") === category)
+          ? ""
+          : "none";
       });
 
       if (category.toLowerCase() === "income") {
-        categoryTotalDiv.innerHTML = `Total Income: Rs. ${total.toLocaleString()}`;
+        const total = globalSummary[category] || 0;
+        categoryTotalDiv.innerHTML = `Total Income: Rs. ${parseFloat(total).toLocaleString()}`;
       } else if (category === "all") {
         categoryTotalDiv.innerHTML = "";
       } else {
-        categoryTotalDiv.innerHTML = `Total: Rs. ${total.toLocaleString()}`;
+        const total = globalSummary[category] || 0;
+        categoryTotalDiv.innerHTML = `Total: Rs. ${parseFloat(total).toLocaleString()}`;
       }
     }
 

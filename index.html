@@ -112,10 +112,7 @@
   <div id="charts">
     <div id="filters">
       <label><input type="checkbox" id="toggleIncome" /> Include Income</label>
-      <label>
-        Filter Pie by Category:
-        <select id="categoryFilterPie" multiple size="4"></select>
-      </label>
+      <select id="categoryFilterPie" multiple size="4" aria-label="Category Filter for Pie Chart"></select>
     </div>
     <canvas id="categoryChart"></canvas>
   </div>
@@ -181,7 +178,7 @@
       const date = new Date(dateStr);
       const day = date.getDate();
       const weekday = date.toLocaleDateString('en-US', { weekday: 'short' });
-      return `${day}${nthSuffix(day)} ${weekday}`;
+      return `${weekday} ${day}${nthSuffix(day)}`;
     }
 
     function renderPieChart(includeIncome = false, selectedCategories = []) {

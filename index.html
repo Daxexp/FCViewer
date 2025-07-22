@@ -164,21 +164,13 @@
       }
     }
 
-    function nthSuffix(day) {
-      if (day > 3 && day < 21) return 'th';
-      switch (day % 10) {
-        case 1: return 'st';
-        case 2: return 'nd';
-        case 3: return 'rd';
-        default: return 'th';
-      }
+    function formatDateLabel(dateStr) {
+      const date = new Date(dateStr);
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}/${month}/${year}`;
     }
-
-   function formatDateLabel(dateStr) {
-  const date = new Date(dateStr);
-  const day = date.getDate();
-  return `${day}${nthSuffix(day)}`;
-}
 
     function renderPieChart(includeIncome = false, selectedCategories = []) {
       const labels = [];

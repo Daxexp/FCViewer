@@ -43,12 +43,9 @@
       background-color: #f1f1f1;
     }
 
-    /* Income/Expense Colors */
-    .income td {
+    /* Amount Color */
+    .amount-income {
       color: green;
-    }
-    .expense td {
-      color: red;
     }
 
     /* Loading */
@@ -132,6 +129,9 @@
         '#7E57C2', '#26A69A', '#FFB300', '#8D6E63', '#789262'
       ];
 
+      // Hide "Income" by default
+      const hiddenStates = labels.map(label => label.toLowerCase() === "income");
+
       new Chart(ctx, {
         type: 'pie',
         data: {
@@ -139,13 +139,31 @@
           datasets: [{
             data: values,
             backgroundColor: colors.slice(0, labels.length),
-            hoverOffset: 30
           }]
         },
         options: {
           responsive: true,
           plugins: {
-            legend: { position: 'right' },
+            legend: {
+              position: 'right',
+              labels: {
+                generateLabels: function(chart) {
+                  const original = Chart.overrides.pie.plugins.legend.labels.generateLabels;
+                  const labels = original(chart);
+                  labels.forEach((label, index) => {
+                    label.hidden = hiddenStates[index];
+                  });
+                  return labels;
+                }
+              },
+              onClick: function(e, legendItem, legend) {
+                const index = legendItem.index;
+                const ci = legend.chart;
+                const meta = ci.getDatasetMeta(0);
+                meta.data[index].hidden = !meta.data[index].hidden;
+                ci.update();
+              }
+            },
             title: {
               display: true,
               text: 'Spending / Income by Category'
@@ -164,18 +182,17 @@
         return;
       }
 
-      // Sort by date descending
       transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
 
       transactions.forEach(tx => {
         const tr = document.createElement('tr');
         const amount = parseFloat(tx.amount);
-        tr.className = amount >= 0 ? 'income' : 'expense';
+        const amountClass = tx.category.trim().toLowerCase() === 'income' ? 'amount-income' : '';
         tr.innerHTML = `
           <td>${tx.date}</td>
           <td>${tx.name}</td>
           <td>${tx.category}</td>
-          <td>${amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</td>
+          <td class="${amountClass}">Rs. ${amount.toLocaleString()}</td>
           <td>${tx.note || ''}</td>
         `;
         tbody.appendChild(tr);

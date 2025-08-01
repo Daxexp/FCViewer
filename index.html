@@ -223,6 +223,50 @@ canvas#categoryChart {
 canvas#categoryChart:hover {
   box-shadow: 0 4px 20px rgba(41, 98, 255, 0.15);
 }
+#downloadModal {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.23);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+}
+#downloadModalContent {
+  background: var(--card-bg);
+  box-shadow: 0 6px 28px rgba(41,98,255,0.11);
+  border-radius: 14px;
+  padding: 32px 36px;
+  text-align: center;
+  min-width: 280px;
+}
+#pdfPasswordInput {
+  width: 80%;
+  padding: 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 1em;
+  display: none;
+}
+#pdfModal {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.25);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+}
+#pdfModalContent {
+  background: var(--card-bg);
+  box-shadow: 0 4px 24px rgba(41,98,255,0.11);
+  border-radius: 14px;
+  padding: 36px 48px;
+  text-align: center;
+  flex-direction: column;
+  display: flex;
+  align-items: center;
+}
 @media (max-width: 900px) {
   #charts, table {
     max-width: 100vw;
@@ -332,6 +376,29 @@ canvas#categoryChart:hover {
     <tbody></tbody>
   </table>
 
+  <!-- Download Confirmation Modal -->
+  <div id="downloadModal">
+    <div id="downloadModalContent">
+      <h3 style="margin-top:0;">Download Transactions PDF?</h3>
+      <label style="margin-top:18px;">
+        <input type="checkbox" id="pdfPasswordToggle"/> Add password protection
+      </label>
+      <input type="password" id="pdfPasswordInput" style="margin-top:10px;" placeholder="Enter password"/>
+      <div style="margin-top:24px;">
+        <button id="confirmDownloadBtn" style="padding:8px 20px;margin-right:16px;background:var(--primary-color);color:#fff;border:none;border-radius:6px;font-size:1em;cursor:pointer;">Download</button>
+        <button id="cancelDownloadBtn" style="padding:8px 16px;background:#eee;color:#444;border:none;border-radius:6px;font-size:1em;cursor:pointer;">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PDF Preparing Modal -->
+  <div id="pdfModal">
+    <div id="pdfModalContent">
+      <div class="spinner"></div>
+      <div style="margin-top:18px;font-size:1.1em;">Preparing PDF...</div>
+    </div>
+  </div>
+
   <script>
     // 1. Define the links for each month
     const DATA_URLS = {
@@ -350,9 +417,7 @@ canvas#categoryChart:hover {
         "July", "August", "September", "October", "November", "December"
       ];
       const label = `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
-      // Check if this label exists in DATA_URLS
       if (DATA_URLS[label]) return label;
-      // Fallback to All Months if not matched
       return ALL_MONTHS_LABEL;
     }
 
@@ -373,15 +438,21 @@ canvas#categoryChart:hover {
     const monthDropdown = document.getElementById("monthDropdown");
     const chartTypeDropdown = document.getElementById("chartTypeDropdown");
 
+    // Modal controls
+    const downloadModal = document.getElementById('downloadModal');
+    const pdfPasswordToggle = document.getElementById('pdfPasswordToggle');
+    const pdfPasswordInput = document.getElementById('pdfPasswordInput');
+    const confirmDownloadBtn = document.getElementById('confirmDownloadBtn');
+    const cancelDownloadBtn = document.getElementById('cancelDownloadBtn');
+    const pdfModal = document.getElementById('pdfModal');
+
     // Populate the month dropdown
     function populateMonthDropdown() {
       monthDropdown.innerHTML = "";
-      // Add "All Months" option first
       const allOption = document.createElement("option");
       allOption.value = ALL_MONTHS_LABEL;
       allOption.textContent = ALL_MONTHS_LABEL;
       monthDropdown.appendChild(allOption);
-      // Add each month
       Object.keys(DATA_URLS).forEach(month => {
         const option = document.createElement("option");
         option.value = month;
@@ -391,33 +462,26 @@ canvas#categoryChart:hover {
       monthDropdown.value = currentMonth;
     }
 
-    // Fetch data for the selected month or for all months
     async function fetchData() {
       if (currentMonth === ALL_MONTHS_LABEL) {
-        // Fetch all months in parallel
         const promises = Object.values(DATA_URLS).map(url =>
           fetch(url)
             .then(res => res.ok ? res.json() : null)
             .catch(() => null)
         );
         const results = await Promise.all(promises);
-        // Only keep non-null results
         const validResults = results.filter(r => r && r.summary && r.transactions);
-        // Combine summaries and transactions
         const combinedSummary = {};
         const combinedTransactions = [];
         validResults.forEach(({ summary, transactions }) => {
-          // Combine summary
           Object.entries(summary).forEach(([cat, value]) => {
             if (!combinedSummary[cat]) {
               combinedSummary[cat] = 0;
             }
             combinedSummary[cat] += parseFloat(value);
           });
-          // Combine transactions
           transactions.forEach(tx => combinedTransactions.push(tx));
         });
-        // If there are date fields, sort combined transactions by date descending
         combinedTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
         return { summary: combinedSummary, transactions: combinedTransactions };
       } else {
@@ -628,50 +692,97 @@ canvas#categoryChart:hover {
       }
     }
 
-    function exportTableToPDF() {
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF();
+    // PDF download modal logic
+    exportPdfBtn.addEventListener("click", () => {
+      pdfPasswordInput.value = "";
+      pdfPasswordInput.style.display = "none";
+      pdfPasswordToggle.checked = false;
+      downloadModal.style.display = 'flex';
+    });
 
-      doc.setFontSize(16);
-      doc.text("Finance Dashboard Transactions", 14, 20);
+    pdfPasswordToggle.addEventListener("change", () => {
+      pdfPasswordInput.style.display = pdfPasswordToggle.checked ? "block" : "none";
+    });
 
-      const columns = [
-        { header: 'Date', dataKey: 'date' },
-        { header: 'Name', dataKey: 'name' },
-        { header: 'Category', dataKey: 'category' },
-        { header: 'Amount', dataKey: 'amount' },
-        { header: 'Note', dataKey: 'note' }
-      ];
+    cancelDownloadBtn.addEventListener("click", () => {
+      downloadModal.style.display = "none";
+    });
 
-      const rows = [];
-      document.querySelectorAll('#transactionsTable tbody tr').forEach(tr => {
-        if (tr.style.display !== 'none') {
-          const tds = tr.querySelectorAll('td');
-          rows.push({
-            date: tds[0].textContent,
-            name: tds[1].textContent,
-            category: tds[2].textContent,
-            amount: tds[3].textContent,
-            note: tds[4].textContent
-          });
+    confirmDownloadBtn.addEventListener("click", () => {
+      downloadModal.style.display = "none";
+      exportTableToPDF(pdfPasswordToggle.checked ? pdfPasswordInput.value : null);
+    });
+
+    function exportTableToPDF(password = null) {
+      pdfModal.style.display = 'flex';
+      setTimeout(() => {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        doc.setFontSize(16);
+        doc.text("Finance Dashboard Transactions", 14, 20);
+
+        const columns = [
+          { header: 'Date', dataKey: 'date' },
+          { header: 'Name', dataKey: 'name' },
+          { header: 'Category', dataKey: 'category' },
+          { header: 'Amount', dataKey: 'amount' },
+          { header: 'Note', dataKey: 'note' }
+        ];
+
+        const rows = [];
+        document.querySelectorAll('#transactionsTable tbody tr').forEach(tr => {
+          if (tr.style.display !== 'none') {
+            const tds = tr.querySelectorAll('td');
+            rows.push({
+              date: tds[0].textContent,
+              name: tds[1].textContent,
+              category: tds[2].textContent,
+              amount: tds[3].textContent,
+              note: tds[4].textContent
+            });
+          }
+        });
+
+        if (rows.length === 0) {
+          alert("No transactions to export!");
+          pdfModal.style.display = 'none';
+          return;
         }
-      });
 
-      if (rows.length === 0) {
-        alert("No transactions to export!");
-        return;
-      }
+        doc.autoTable({
+          columns: columns,
+          body: rows,
+          startY: 30,
+          styles: { fontSize: 10 },
+          headStyles: { fillColor: [44, 62, 80], textColor: 255 },
+          alternateRowStyles: { fillColor: [240, 240, 240] },
+        });
 
-      doc.autoTable({
-        columns: columns,
-        body: rows,
-        startY: 30,
-        styles: { fontSize: 10 },
-        headStyles: { fillColor: [44, 62, 80], textColor: 255 },
-        alternateRowStyles: { fillColor: [240, 240, 240] },
-      });
+        // file name: YYYY-MM-transactions.pdf
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const filename = `${year}-${month}-transactions.pdf`;
 
-      doc.save('Finance_Dashboard_Transactions.pdf');
+        // Password protection (note: jsPDF does not natively support password unless using plugin)
+        if (password && doc.protect) {
+          doc.protect({
+            userPassword: password,
+            ownerPassword: password,
+            permissions: {
+              printing: 'highResolution',
+              modifying: false,
+              copying: false,
+            },
+          });
+        } else if (password) {
+          alert("Password protection is not supported in this browser. PDF will be downloaded without password.");
+        }
+
+        doc.save(filename);
+        pdfModal.style.display = 'none';
+      }, 500);
     }
 
     async function init() {
@@ -704,7 +815,6 @@ canvas#categoryChart:hover {
     });
 
     toggleDarkModeBtn.addEventListener("click", toggleDarkMode);
-    exportPdfBtn.addEventListener("click", exportTableToPDF);
 
     // Month change logic
     monthDropdown.addEventListener("change", () => {

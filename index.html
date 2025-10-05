@@ -788,16 +788,14 @@ canvas#categoryChart:hover {
           alternateRowStyles: { fillColor: [240, 240, 240] },
           didDrawPage: function (data) {
             // Footer: watermark & page number
-            doc.setFontSize(10);
-            doc.setTextColor(180);
-            // Watermark footer
-            doc.text('Created by Dasith', doc.internal.pageSize.getWidth() - 14, doc.internal.pageSize.getHeight() - 10, { align: 'right' });
-            // Page number (watermark style)
             const pageCount = doc.internal.getNumberOfPages();
             const pageCurrent = doc.internal.getCurrentPageInfo().pageNumber;
             doc.setFontSize(10);
-            doc.setTextColor(160);
-            doc.text(`${pageCurrent} of ${pageCount}`, doc.internal.pageSize.getWidth() - 14, doc.internal.pageSize.getHeight() - 4, { align: 'left' });
+            doc.setTextColor(180);
+            // Page number left
+            doc.text(`${pageCurrent} of ${pageCount}`, 14, 285, {align: 'left'});
+            // Created by Dasith right
+            doc.text('Created by Dasith', 200, 285, {align: 'right'});
           }
         });
 

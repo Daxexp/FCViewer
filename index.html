@@ -670,6 +670,7 @@ canvas#categoryChart:hover {
           : "none";
       });
 
+      // Only update categoryTotalDiv for the selected filter
       if (category.toLowerCase() === "income") {
         const total = globalSummary[category] || 0;
         categoryTotalDiv.innerHTML = `Total Income: Rs. ${parseFloat(total).toLocaleString()}`;
@@ -713,40 +714,7 @@ canvas#categoryChart:hover {
       exportTableToPDF(pdfPasswordToggle.checked ? pdfPasswordInput.value : null);
     });
 
-    // Helper: get total value from the categoryTotalDiv (as shown on page)
-    function getDisplayedTotal() {
-      let html = categoryTotalDiv.innerText || "";
-      let match = html.match(/Rs\.\s*([0-9,\.]+)/);
-      if (match) {
-        let val = match[1].replace(/,/g, '');
-        return Number(val);
-      }
-      return null;
-    }
-
-    // Helper: get highest expense category and its note from filtered transactions
-    function getHighestExpenseCategory(filteredTransactions) {
-      let expenses = filteredTransactions.filter(tx => tx.category.toLowerCase() !== 'income');
-      if (!expenses.length) return null;
-      let byCategory = {};
-      let notesByCategory = {};
-      expenses.forEach(tx => {
-        if (!byCategory[tx.category]) byCategory[tx.category] = 0;
-        byCategory[tx.category] += parseFloat(tx.amount.replace(/[^\d.-]/g, ''));
-        if (!notesByCategory[tx.category] && tx.note) notesByCategory[tx.category] = tx.note;
-      });
-      let sorted = Object.entries(byCategory).sort((a,b) => b[1]-a[1]);
-      let highestCat = sorted[0][0];
-      let highestAmt = sorted[0][1];
-      let note = notesByCategory[highestCat] || '';
-      return {
-        category: highestCat,
-        amount: highestAmt,
-        note: note
-      };
-    }
-
-    // PDF Export section
+    // --- PDF Export section ---
     function exportTableToPDF(password = null) {
       pdfModal.style.display = 'flex';
       setTimeout(() => {
@@ -819,44 +787,35 @@ canvas#categoryChart:hover {
           headStyles: { fillColor: [44, 62, 80], textColor: 255 },
           alternateRowStyles: { fillColor: [240, 240, 240] },
           didDrawPage: function (data) {
-            // Footer watermark and page numbers
+            // Footer: watermark & page number
+            doc.setFontSize(9);
+            doc.setTextColor(180);
+            // Watermark footer
+            doc.text('Created by Dasith', doc.internal.pageSize.getWidth() - 14, doc.internal.pageSize.getHeight() - 10, { align: 'right' });
+            // Page number (watermark style)
             const pageCount = doc.internal.getNumberOfPages();
             const pageCurrent = doc.internal.getCurrentPageInfo().pageNumber;
-            doc.setFontSize(10);
-            doc.setTextColor(180);
-            // Page number left
-            doc.text(`${pageCurrent} of ${pageCount}`, 14, 285, {align: 'left'});
-            // Created by Dasith right
-            doc.text('Created by Dasith', 200, 285, {align: 'right'});
+            doc.setFontSize(9);
+            doc.setTextColor(160);
+            doc.text(`${pageCurrent} of ${pageCount}`, doc.internal.pageSize.getWidth() - 14, doc.internal.pageSize.getHeight() - 4, { align: 'right' });
           }
         });
 
-        // --- 5. Summary Section ---
-        let summaryY = doc.lastAutoTable.finalY + 10;
-        let totalVal = getDisplayedTotal();
-        let summaryPoints = [];
-        if (totalVal !== null) {
-          summaryPoints.push(`Total: Rs. ${totalVal.toLocaleString()}`);
-        }
-        let highest = getHighestExpenseCategory(rows);
-        if (highest) {
-          let point = `Highest Expense Category: ${highest.category} (Rs. ${highest.amount.toLocaleString()})`;
-          if (highest.note) point += `\nNote: ${highest.note}`;
-          summaryPoints.push(point);
-        }
+        // --- 5. Summary Section: Only total from page ---
+        let summaryY = doc.lastAutoTable.finalY + 12;
         doc.setFontSize(13);
         doc.setTextColor(44, 62, 80);
         doc.text("Summary", 14, summaryY);
+
+        // Get the amount shown on the page under the category filter
+        let pageTotal = categoryTotalDiv.textContent || "";
+        if (!pageTotal) {
+          // If the total is blank, show pieTotal instead (for 'All')
+          pageTotal = pieTotalDiv.textContent || "";
+        }
         doc.setFontSize(11);
         doc.setTextColor(80);
-        let currentY = summaryY + 8;
-        summaryPoints.forEach((point, idx) => {
-          const lines = point.split('\n');
-          lines.forEach(line => {
-            doc.text(line, 18, currentY);
-            currentY += 8;
-          });
-        });
+        doc.text(`• ${pageTotal}`, 18, summaryY + 9);
 
         // --- 6. Password protection ---
         if (password && doc.protect) {
@@ -909,12 +868,14 @@ canvas#categoryChart:hover {
 
     toggleDarkModeBtn.addEventListener("click", toggleDarkMode);
 
+    // Month change logic
     monthDropdown.addEventListener("change", () => {
       currentMonth = monthDropdown.value;
       DATA_URL = (currentMonth === ALL_MONTHS_LABEL) ? null : DATA_URLS[currentMonth];
       init();
     });
 
+    // Chart type logic
     chartTypeDropdown.addEventListener("change", () => {
       currentChartType = chartTypeDropdown.value;
       renderChart(toggleIncome.checked);

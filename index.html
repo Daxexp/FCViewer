@@ -8,313 +8,313 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
   <style>
-    /* --- your CSS unchanged --- */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-:root {
-  --bg-color: #f4f7fa;
-  --text-color: #263238;
-  --primary-color: #2962ff;
-  --card-bg: #fff;
-  --border-color: #e0e5ec;
-  --income-color: #2ecc71;
-  --expense-color: #e74c3c;
-  --header-bg: #2962ff;
-  --header-text: #fff;
-  --accent-bg: #e3f2fd;
-  --box-shadow: 0 2px 12px rgba(41, 98, 255, 0.06);
-  --hover-bg: #e3f2fd;
-}
-body.dark {
-  --bg-color: #181f2a;
-  --text-color: #e3eafc;
-  --primary-color: #82b1ff;
-  --card-bg: #232a3a;
-  --border-color: #31384a;
-  --income-color: #43a047;
-  --expense-color: #ef5350;
-  --header-bg: #232a3a;
-  --header-text: #e3eafc;
-  --accent-bg: #23395d;
-  --box-shadow: 0 2px 12px rgba(130, 177, 255, 0.09);
-  --hover-bg: #2a3551;
-}
-body {
-  font-family: 'Inter', Arial, sans-serif;
-  background: var(--bg-color);
-  color: var(--text-color);
-  margin: 0;
-  padding: 0;
-  min-height: 100vh;
-  transition: background-color 0.2s, color 0.2s;
-}
-h1 {
-  text-align: center;
-  font-weight: 700;
-  font-size: 2.5rem;
-  margin-bottom: 8px;
-  color: var(--primary-color);
-  letter-spacing: 1px;
-}
-h2 {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: var(--primary-color);
-  margin: 36px 0 14px 0;
-  text-align: left;
-}
-#charts, #filters, #monthSelector, #chartTypeSelector {
-  width: 100%;
-  max-width: 900px;
-  margin: 0 auto;
-}
-#charts {
-  background: var(--card-bg);
-  border-radius: 20px;
-  box-shadow: var(--box-shadow);
-  padding: 32px 24px;
-  margin-bottom: 32px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-#filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 20px;
-  justify-content: center;
-  margin-bottom: 18px;
-}
-#monthSelector, #chartTypeSelector {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 18px;
-}
-select, label {
-  font-size: 17px;
-  color: var(--text-color);
-  margin-bottom: 0;
-}
-select {
-  padding: 8px 16px;
-  border-radius: 8px;
-  border: 1.5px solid var(--border-color);
-  background: var(--accent-bg);
-  transition: border-color 0.2s, background 0.2s;
-  font-weight: 500;
-}
-select:focus, select:hover {
-  border-color: var(--primary-color);
-  outline: none;
-  background: var(--card-bg);
-}
-input[type="checkbox"] {
-  accent-color: var(--primary-color);
-  margin-right: 8px;
-  transform: scale(1.2);
-}
-#buttonsContainer {
-  position: fixed;
-  top: 24px;
-  right: 24px;
-  display: flex;
-  gap: 14px;
-  z-index: 100;
-}
-button.icon-btn {
-  background: var(--primary-color);
-  border: none;
-  color: #fff;
-  border-radius: 50%;
-  width: 44px;
-  height: 44px;
-  font-size: 21px;
-  cursor: pointer;
-  box-shadow: var(--box-shadow);
-  transition: background 0.2s, transform 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-button.icon-btn:hover {
-  background: #0039cb;
-  transform: scale(1.08);
-}
-table {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  background: var(--card-bg);
-  border-radius: 18px;
-  box-shadow: var(--box-shadow);
-  overflow: hidden;
-  font-size: 16px;
-  margin-bottom: 24px;
-  margin-top: 12px;
-  transition: box-shadow 0.2s;
-}
-thead th {
-  background: var(--header-bg);
-  color: var(--header-text);
-  font-weight: 700;
-  padding: 14px 16px;
-  border-bottom: 2px solid var(--border-color);
-  font-size: 1.05em;
-}
-tbody tr {
-  transition: background 0.18s;
-}
-tbody tr:nth-child(even) {
-  background: var(--accent-bg);
-}
-tbody tr:hover {
-  background: var(--hover-bg);
-}
-td, th {
-  padding: 14px 16px;
-}
-.amount-income {
-  color: var(--income-color);
-  font-weight: 600;
-}
-.amount-expense {
-  color: var(--expense-color);
-  font-weight: 600;
-}
-#loading {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(255,255,255,0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-}
-body.dark #loading {
-  background: rgba(0,0,0,0.5);
-}
-.spinner {
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid var(--primary-color);
-  border-radius: 50%;
-  width: 48px;
-  height: 48px;
-  animation: spin 1s linear infinite;
-}
-@keyframes spin {
-  0% { transform: rotate(0deg);}
-  100% { transform: rotate(360deg);}
-}
-#categoryTotal, #pieTotal {
-  font-size: 1.1rem;
-  color: var(--primary-color);
-  margin-top: 14px;
-  font-weight: 600;
-  text-align: center;
-}
-canvas#categoryChart {
-  max-width: 520px !important;
-  max-height: 420px !important;
-  box-shadow: var(--box-shadow);
-  border-radius: 12px;
-  background: var(--card-bg);
-  transition: box-shadow 0.2s;
-}
-canvas#categoryChart:hover {
-  box-shadow: 0 4px 20px rgba(41, 98, 255, 0.15);
-}
-#downloadModal {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.23);
-  display: none;
-  align-items: center;
-  justify-content: center;
-  z-index: 99999;
-}
-#downloadModalContent {
-  background: var(--card-bg);
-  box-shadow: 0 6px 28px rgba(41,98,255,0.11);
-  border-radius: 14px;
-  padding: 32px 36px;
-  text-align: center;
-  min-width: 280px;
-}
-#pdfPasswordInput {
-  width: 80%;
-  padding: 8px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  font-size: 1em;
-  display: none;
-}
-#pdfModal {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.25);
-  display: none;
-  align-items: center;
-  justify-content: center;
-  z-index: 99999;
-}
-#pdfModalContent {
-  background: var(--card-bg);
-  box-shadow: 0 4px 24px rgba(41,98,255,0.11);
-  border-radius: 14px;
-  padding: 36px 48px;
-  text-align: center;
-  flex-direction: column;
-  display: flex;
-  align-items: center;
-}
-@media (max-width: 900px) {
-  #charts, table {
-    max-width: 100vw;
-    border-radius: 0;
-  }
-}
-@media (max-width: 600px) {
-  h1 { font-size: 1.7rem; }
-  #charts { padding: 16px 4px; }
-  table { font-size: 14px; }
-  thead, tbody, th, td, tr {
-    display: block;
-  }
-  thead tr {
-    position: absolute; top: -9999px; left: -9999px;
-  }
-  tbody tr {
-    border: 1px solid var(--border-color);
-    border-radius: 10px;
-    margin-bottom: 7px;
-    padding: 10px 7px;
-    box-shadow: 0 1px 5px rgba(41, 98, 255, 0.07);
-  }
-  td {
-    border: none;
-    padding-left: 50%;
-    position: relative;
-    font-size: 15px;
-    text-align: left;
-    color: var(--text-color);
-  }
-  td::before {
-    position: absolute;
-    top: 10px;
-    left: 12px;
-    width: 47%;
-    white-space: nowrap;
-    font-weight: 600;
-    color: var(--text-color);
-  }
-  td:nth-of-type(1)::before { content: "Date"; }
-  td:nth-of-type(2)::before { content: "Description"; }
-  td:nth-of-type(3)::before { content: "Category"; }
-  td:nth-of-type(4)::before { content: "Amount"; }
-  td:nth-of-type(5)::before { content: "Note"; }
-  canvas#categoryChart { max-width: 100% !important; max-height: 280px !important; }
-}
+    /* All your CSS unchanged as before */
+    :root {
+      --bg-color: #f4f7fa;
+      --text-color: #263238;
+      --primary-color: #2962ff;
+      --card-bg: #fff;
+      --border-color: #e0e5ec;
+      --income-color: #2ecc71;
+      --expense-color: #e74c3c;
+      --header-bg: #2962ff;
+      --header-text: #fff;
+      --accent-bg: #e3f2fd;
+      --box-shadow: 0 2px 12px rgba(41, 98, 255, 0.06);
+      --hover-bg: #e3f2fd;
+    }
+    body.dark {
+      --bg-color: #181f2a;
+      --text-color: #e3eafc;
+      --primary-color: #82b1ff;
+      --card-bg: #232a3a;
+      --border-color: #31384a;
+      --income-color: #43a047;
+      --expense-color: #ef5350;
+      --header-bg: #232a3a;
+      --header-text: #e3eafc;
+      --accent-bg: #23395d;
+      --box-shadow: 0 2px 12px rgba(130, 177, 255, 0.09);
+      --hover-bg: #2a3551;
+    }
+    body {
+      font-family: 'Inter', Arial, sans-serif;
+      background: var(--bg-color);
+      color: var(--text-color);
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      transition: background-color 0.2s, color 0.2s;
+    }
+    h1 {
+      text-align: center;
+      font-weight: 700;
+      font-size: 2.5rem;
+      margin-bottom: 8px;
+      color: var(--primary-color);
+      letter-spacing: 1px;
+    }
+    h2 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--primary-color);
+      margin: 36px 0 14px 0;
+      text-align: left;
+    }
+    #charts, #filters, #monthSelector, #chartTypeSelector {
+      width: 100%;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    #charts {
+      background: var(--card-bg);
+      border-radius: 20px;
+      box-shadow: var(--box-shadow);
+      padding: 32px 24px;
+      margin-bottom: 32px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    #filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      justify-content: center;
+      margin-bottom: 18px;
+    }
+    #monthSelector, #chartTypeSelector {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+    select, label {
+      font-size: 17px;
+      color: var(--text-color);
+      margin-bottom: 0;
+    }
+    select {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: 1.5px solid var(--border-color);
+      background: var(--accent-bg);
+      transition: border-color 0.2s, background 0.2s;
+      font-weight: 500;
+    }
+    select:focus, select:hover {
+      border-color: var(--primary-color);
+      outline: none;
+      background: var(--card-bg);
+    }
+    input[type="checkbox"] {
+      accent-color: var(--primary-color);
+      margin-right: 8px;
+      transform: scale(1.2);
+    }
+    #buttonsContainer {
+      position: fixed;
+      top: 24px;
+      right: 24px;
+      display: flex;
+      gap: 14px;
+      z-index: 100;
+    }
+    button.icon-btn {
+      background: var(--primary-color);
+      border: none;
+      color: #fff;
+      border-radius: 50%;
+      width: 44px;
+      height: 44px;
+      font-size: 21px;
+      cursor: pointer;
+      box-shadow: var(--box-shadow);
+      transition: background 0.2s, transform 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    button.icon-btn:hover {
+      background: #0039cb;
+      transform: scale(1.08);
+    }
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      background: var(--card-bg);
+      border-radius: 18px;
+      box-shadow: var(--box-shadow);
+      overflow: hidden;
+      font-size: 16px;
+      margin-bottom: 24px;
+      margin-top: 12px;
+      transition: box-shadow 0.2s;
+    }
+    thead th {
+      background: var(--header-bg);
+      color: var(--header-text);
+      font-weight: 700;
+      padding: 14px 16px;
+      border-bottom: 2px solid var(--border-color);
+      font-size: 1.05em;
+    }
+    tbody tr {
+      transition: background 0.18s;
+    }
+    tbody tr:nth-child(even) {
+      background: var(--accent-bg);
+    }
+    tbody tr:hover {
+      background: var(--hover-bg);
+    }
+    td, th {
+      padding: 14px 16px;
+    }
+    .amount-income {
+      color: var(--income-color);
+      font-weight: 600;
+    }
+    .amount-expense {
+      color: var(--expense-color);
+      font-weight: 600;
+    }
+    #loading {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(255,255,255,0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+    body.dark #loading {
+      background: rgba(0,0,0,0.5);
+    }
+    .spinner {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid var(--primary-color);
+      border-radius: 50%;
+      width: 48px;
+      height: 48px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg);}
+      100% { transform: rotate(360deg);}
+    }
+    #categoryTotal, #pieTotal {
+      font-size: 1.1rem;
+      color: var(--primary-color);
+      margin-top: 14px;
+      font-weight: 600;
+      text-align: center;
+    }
+    canvas#categoryChart {
+      max-width: 520px !important;
+      max-height: 420px !important;
+      box-shadow: var(--box-shadow);
+      border-radius: 12px;
+      background: var(--card-bg);
+      transition: box-shadow 0.2s;
+    }
+    canvas#categoryChart:hover {
+      box-shadow: 0 4px 20px rgba(41, 98, 255, 0.15);
+    }
+    #downloadModal {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.23);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 99999;
+    }
+    #downloadModalContent {
+      background: var(--card-bg);
+      box-shadow: 0 6px 28px rgba(41,98,255,0.11);
+      border-radius: 14px;
+      padding: 32px 36px;
+      text-align: center;
+      min-width: 280px;
+    }
+    #pdfPasswordInput {
+      width: 80%;
+      padding: 8px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-size: 1em;
+      display: none;
+    }
+    #pdfModal {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.25);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 99999;
+    }
+    #pdfModalContent {
+      background: var(--card-bg);
+      box-shadow: 0 4px 24px rgba(41,98,255,0.11);
+      border-radius: 14px;
+      padding: 36px 48px;
+      text-align: center;
+      flex-direction: column;
+      display: flex;
+      align-items: center;
+    }
+    @media (max-width: 900px) {
+      #charts, table {
+        max-width: 100vw;
+        border-radius: 0;
+      }
+    }
+    @media (max-width: 600px) {
+      h1 { font-size: 1.7rem; }
+      #charts { padding: 16px 4px; }
+      table { font-size: 14px; }
+      thead, tbody, th, td, tr {
+        display: block;
+      }
+      thead tr {
+        position: absolute; top: -9999px; left: -9999px;
+      }
+      tbody tr {
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        margin-bottom: 7px;
+        padding: 10px 7px;
+        box-shadow: 0 1px 5px rgba(41, 98, 255, 0.07);
+      }
+      td {
+        border: none;
+        padding-left: 50%;
+        position: relative;
+        font-size: 15px;
+        text-align: left;
+        color: var(--text-color);
+      }
+      td::before {
+        position: absolute;
+        top: 10px;
+        left: 12px;
+        width: 47%;
+        white-space: nowrap;
+        font-weight: 600;
+        color: var(--text-color);
+      }
+      td:nth-of-type(1)::before { content: "Date"; }
+      td:nth-of-type(2)::before { content: "Description"; }
+      td:nth-of-type(3)::before { content: "Category"; }
+      td:nth-of-type(4)::before { content: "Amount"; }
+      td:nth-of-type(5)::before { content: "Note"; }
+      canvas#categoryChart { max-width: 100% !important; max-height: 280px !important; }
+    }
   </style>
 </head>
 <body>
@@ -467,7 +467,6 @@ canvas#categoryChart:hover {
     function getMonthRangeString() {
       const months = Object.keys(DATA_URLS);
       if (!months.length) return "";
-      // Sort months by actual date (assumes "Month Year" format)
       const monthOrder = [
         "January","February","March","April","May","June","July","August","September","October","November","December"
       ];
@@ -556,8 +555,8 @@ canvas#categoryChart:hover {
 
         // All Months case
         if (selectedMonthLabel === ALL_MONTHS_LABEL) {
-          const rangeHuman = getMonthRangeStringHuman(); // eg: 2025 June to 2025 August
-          const rangeFile = getMonthRangeString().replace(/ /g, "_"); // eg: 2025_June to 2025_August
+          const rangeHuman = getMonthRangeStringHuman();
+          const rangeFile = getMonthRangeString().replace(/ /g, "_");
           if (selectedCategory === "all") {
             pdfName = `${rangeFile}_Transactions.pdf`;
             watermark = `Transactions - (${rangeHuman})`;
@@ -621,15 +620,7 @@ canvas#categoryChart:hover {
           startY: 30,
           styles: { fontSize: 10 },
           headStyles: { fillColor: [44, 62, 80], textColor: 255 },
-          alternateRowStyles: { fillColor: [240, 240, 240] },
-          didDrawPage: function (data) {
-            const pageCount = doc.internal.getNumberOfPages();
-            const pageCurrent = doc.internal.getCurrentPageInfo().pageNumber;
-            doc.setFontSize(10);
-            doc.setTextColor(180);
-            doc.text(`${pageCurrent} of ${pageCount}`, 14, 285, {align: 'left'});
-            doc.text('Created by Dasith', 200, 285, {align: 'right'});
-          }
+          alternateRowStyles: { fillColor: [240, 240, 240] }
         });
 
         // --- 5. Summary Section: Only total from page ---
@@ -638,17 +629,25 @@ canvas#categoryChart:hover {
         doc.setTextColor(44, 62, 80);
         doc.text("Summary", 14, summaryY);
 
-        // Get the amount shown on the page under the category filter
         let pageTotal = categoryTotalDiv.textContent || "";
         if (!pageTotal) {
-          // If the total is blank, show pieTotal instead (for 'All')
           pageTotal = pieTotalDiv.textContent || "";
         }
         doc.setFontSize(11);
         doc.setTextColor(80);
         doc.text(`• ${pageTotal}`, 18, summaryY + 9);
 
-        // --- 6. Password protection ---
+        // --- 6. Footer with correct page numbers ---
+        const pageCount = doc.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
+          doc.setPage(i);
+          doc.setFontSize(10);
+          doc.setTextColor(180);
+          doc.text(`${i} of ${pageCount}`, 14, 285, {align: 'left'});
+          doc.text('Created by Dasith', 200, 285, {align: 'right'});
+        }
+
+        // --- 7. Password protection ---
         if (password && doc.protect) {
           doc.protect({
             userPassword: password,
@@ -842,7 +841,6 @@ canvas#categoryChart:hover {
           : "none";
       });
 
-      // Only update categoryTotalDiv for the selected filter
       if (category.toLowerCase() === "income") {
         const total = globalSummary[category] || 0;
         categoryTotalDiv.innerHTML = `Total Income: Rs. ${parseFloat(total).toLocaleString()}`;

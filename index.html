@@ -8,6 +8,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
   <style>
+    /* --- your CSS unchanged --- */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
 :root {
   --bg-color: #f4f7fa;
@@ -462,6 +463,48 @@ canvas#categoryChart:hover {
       monthDropdown.value = currentMonth;
     }
 
+    // Helper for PDF: get the range of months shown in DATA_URLS
+    function getMonthRangeString() {
+      const months = Object.keys(DATA_URLS);
+      if (!months.length) return "";
+      // Sort months by actual date (assumes "Month Year" format)
+      const monthOrder = [
+        "January","February","March","April","May","June","July","August","September","October","November","December"
+      ];
+      months.sort((a,b)=>{
+        const [am,ay] = a.split(" ");
+        const [bm,by] = b.split(" ");
+        if (ay !== by) return parseInt(ay,10)-parseInt(by,10);
+        return monthOrder.indexOf(am)-monthOrder.indexOf(bm);
+      });
+      const first = months[0].split(" ");
+      const last  = months[months.length-1].split(" ");
+      if (first[1] === last[1]) {
+        return `${first[1]}_${first[0]} to ${last[0]}`;
+      }
+      return `${first[1]}_${first[0]} to ${last[1]}_${last[0]}`;
+    }
+
+    function getMonthRangeStringHuman() {
+      const months = Object.keys(DATA_URLS);
+      if (!months.length) return "";
+      const monthOrder = [
+        "January","February","March","April","May","June","July","August","September","October","November","December"
+      ];
+      months.sort((a,b)=>{
+        const [am,ay] = a.split(" ");
+        const [bm,by] = b.split(" ");
+        if (ay !== by) return parseInt(ay,10)-parseInt(by,10);
+        return monthOrder.indexOf(am)-monthOrder.indexOf(bm);
+      });
+      const first = months[0].split(" ");
+      const last  = months[months.length-1].split(" ");
+      if (first[1] === last[1]) {
+        return `${first[1]} ${first[0]} to ${last[0]}`;
+      }
+      return `${first[1]} ${first[0]} to ${last[1]} ${last[0]}`;
+    }
+
     async function fetchData() {
       if (currentMonth === ALL_MONTHS_LABEL) {
         const promises = Object.values(DATA_URLS).map(url =>
@@ -497,6 +540,135 @@ canvas#categoryChart:hover {
       }
     }
 
+    // --- PDF Export section ---
+    function exportTableToPDF(password = null) {
+      pdfModal.style.display = 'flex';
+      setTimeout(() => {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        // --- 1. Gather context ---
+        const selectedCategory = categoryFilterTable.value;
+        const selectedMonthLabel = monthDropdown.value;
+
+        let pdfName = "";
+        let watermark = "";
+
+        // All Months case
+        if (selectedMonthLabel === ALL_MONTHS_LABEL) {
+          const rangeHuman = getMonthRangeStringHuman(); // eg: 2025 June to 2025 August
+          const rangeFile = getMonthRangeString().replace(/ /g, "_"); // eg: 2025_June to 2025_August
+          if (selectedCategory === "all") {
+            pdfName = `${rangeFile}_Transactions.pdf`;
+            watermark = `Transactions - (${rangeHuman})`;
+          } else {
+            pdfName = `${rangeFile}_Transactions_for_${selectedCategory}.pdf`;
+            watermark = `Transactions - (${rangeHuman}, ${selectedCategory})`;
+          }
+        } else {
+          // Single month case
+          let year, monthName;
+          [monthName, year] = selectedMonthLabel.split(" ");
+          if (selectedCategory === "all") {
+            pdfName = `${year}_${monthName}_Transactions.pdf`;
+            watermark = `Transactions - (${year} ${monthName})`;
+          } else {
+            pdfName = `${year}_${monthName}_Transactions_for_${selectedCategory}.pdf`;
+            watermark = `Transactions - (${year} ${monthName}, ${selectedCategory})`;
+          }
+        }
+
+        // --- 2. Filter transactions for export ---
+        const rows = [];
+        document.querySelectorAll('#transactionsTable tbody tr').forEach(tr => {
+          if (tr.style.display !== 'none') {
+            const tds = tr.querySelectorAll('td');
+            rows.push({
+              date: tds[0].textContent,
+              name: tds[1].textContent,
+              category: tds[2].textContent,
+              amount: tds[3].textContent,
+              note: tds[4].textContent
+            });
+          }
+        });
+
+        if (rows.length === 0) {
+          alert("No transactions to export!");
+          pdfModal.style.display = 'none';
+          return;
+        }
+
+        // --- 3. Watermark / Title ---
+        doc.setFontSize(10);
+        doc.setTextColor(180);
+        doc.text(watermark, 200, 12, { align: 'right' });
+
+        doc.setFontSize(16);
+        doc.setTextColor(44, 62, 80);
+        doc.text("Finance Dashboard Transactions", 14, 20);
+
+        // --- 4. Table ---
+        doc.autoTable({
+          columns: [
+            { header: 'Date', dataKey: 'date' },
+            { header: 'Name', dataKey: 'name' },
+            { header: 'Category', dataKey: 'category' },
+            { header: 'Amount', dataKey: 'amount' },
+            { header: 'Note', dataKey: 'note' }
+          ],
+          body: rows,
+          startY: 30,
+          styles: { fontSize: 10 },
+          headStyles: { fillColor: [44, 62, 80], textColor: 255 },
+          alternateRowStyles: { fillColor: [240, 240, 240] },
+          didDrawPage: function (data) {
+            const pageCount = doc.internal.getNumberOfPages();
+            const pageCurrent = doc.internal.getCurrentPageInfo().pageNumber;
+            doc.setFontSize(10);
+            doc.setTextColor(180);
+            doc.text(`${pageCurrent} of ${pageCount}`, 14, 285, {align: 'left'});
+            doc.text('Created by Dasith', 200, 285, {align: 'right'});
+          }
+        });
+
+        // --- 5. Summary Section: Only total from page ---
+        let summaryY = doc.lastAutoTable.finalY + 12;
+        doc.setFontSize(13);
+        doc.setTextColor(44, 62, 80);
+        doc.text("Summary", 14, summaryY);
+
+        // Get the amount shown on the page under the category filter
+        let pageTotal = categoryTotalDiv.textContent || "";
+        if (!pageTotal) {
+          // If the total is blank, show pieTotal instead (for 'All')
+          pageTotal = pieTotalDiv.textContent || "";
+        }
+        doc.setFontSize(11);
+        doc.setTextColor(80);
+        doc.text(`• ${pageTotal}`, 18, summaryY + 9);
+
+        // --- 6. Password protection ---
+        if (password && doc.protect) {
+          doc.protect({
+            userPassword: password,
+            ownerPassword: password,
+            permissions: {
+              printing: 'highResolution',
+              modifying: false,
+              copying: false,
+            },
+          });
+        } else if (password) {
+          alert("Password protection is not supported in this browser. PDF will be downloaded without password.");
+        }
+
+        doc.save(pdfName);
+        pdfModal.style.display = 'none';
+      }, 500);
+    }
+
+    // --- rest of JS unchanged ---
     function renderChart(includeIncome = false) {
       const labels = [];
       const values = [];
@@ -693,7 +865,6 @@ canvas#categoryChart:hover {
       }
     }
 
-    // PDF download modal logic
     exportPdfBtn.addEventListener("click", () => {
       pdfPasswordInput.value = "";
       pdfPasswordInput.style.display = "none";
@@ -713,127 +884,6 @@ canvas#categoryChart:hover {
       downloadModal.style.display = "none";
       exportTableToPDF(pdfPasswordToggle.checked ? pdfPasswordInput.value : null);
     });
-
-    // --- PDF Export section ---
-    function exportTableToPDF(password = null) {
-      pdfModal.style.display = 'flex';
-      setTimeout(() => {
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
-
-        // --- 1. Gather context ---
-        const selectedCategory = categoryFilterTable.value;
-        const selectedMonthLabel = monthDropdown.value;
-        const now = new Date();
-        let year, monthName;
-        if (selectedMonthLabel !== ALL_MONTHS_LABEL) {
-          [monthName, year] = selectedMonthLabel.split(" ");
-        } else {
-          year = now.getFullYear();
-          monthName = now.toLocaleString('default', { month: 'long' });
-        }
-        let pdfName = "";
-
-        if (selectedCategory === "all") {
-          pdfName = `${year}_${monthName}_Transactions.pdf`;
-        } else {
-          pdfName = `${year}_${monthName}_Transactions_for_${selectedCategory}.pdf`;
-        }
-
-        let watermark = `Transactions - (${year} ${monthName}${selectedCategory !== "all" ? ", " + selectedCategory : ""})`;
-
-        // --- 2. Filter transactions for export ---
-        const rows = [];
-        document.querySelectorAll('#transactionsTable tbody tr').forEach(tr => {
-          if (tr.style.display !== 'none') {
-            const tds = tr.querySelectorAll('td');
-            rows.push({
-              date: tds[0].textContent,
-              name: tds[1].textContent,
-              category: tds[2].textContent,
-              amount: tds[3].textContent,
-              note: tds[4].textContent
-            });
-          }
-        });
-
-        if (rows.length === 0) {
-          alert("No transactions to export!");
-          pdfModal.style.display = 'none';
-          return;
-        }
-
-        // --- 3. Watermark / Title ---
-        doc.setFontSize(10);
-        doc.setTextColor(180);
-        doc.text(watermark, 200, 12, { align: 'right' });
-
-        doc.setFontSize(16);
-        doc.setTextColor(44, 62, 80);
-        doc.text("Finance Dashboard Transactions", 14, 20);
-
-        // --- 4. Table ---
-        doc.autoTable({
-          columns: [
-            { header: 'Date', dataKey: 'date' },
-            { header: 'Name', dataKey: 'name' },
-            { header: 'Category', dataKey: 'category' },
-            { header: 'Amount', dataKey: 'amount' },
-            { header: 'Note', dataKey: 'note' }
-          ],
-          body: rows,
-          startY: 30,
-          styles: { fontSize: 10 },
-          headStyles: { fillColor: [44, 62, 80], textColor: 255 },
-          alternateRowStyles: { fillColor: [240, 240, 240] },
-          didDrawPage: function (data) {
-            // Footer: watermark & page number
-            const pageCount = doc.internal.getNumberOfPages();
-            const pageCurrent = doc.internal.getCurrentPageInfo().pageNumber;
-            doc.setFontSize(10);
-            doc.setTextColor(180);
-            // Page number left
-            doc.text(`${pageCurrent} of ${pageCount}`, 14, 285, {align: 'left'});
-            // Created by Dasith right
-            doc.text('Created by Dasith', 200, 285, {align: 'right'});
-          }
-        });
-
-        // --- 5. Summary Section: Only total from page ---
-        let summaryY = doc.lastAutoTable.finalY + 12;
-        doc.setFontSize(13);
-        doc.setTextColor(44, 62, 80);
-        doc.text("Summary", 14, summaryY);
-
-        // Get the amount shown on the page under the category filter
-        let pageTotal = categoryTotalDiv.textContent || "";
-        if (!pageTotal) {
-          // If the total is blank, show pieTotal instead (for 'All')
-          pageTotal = pieTotalDiv.textContent || "";
-        }
-        doc.setFontSize(11);
-        doc.setTextColor(80);
-        doc.text(`• ${pageTotal}`, 18, summaryY + 9);
-
-        // --- 6. Password protection ---
-        if (password && doc.protect) {
-          doc.protect({
-            userPassword: password,
-            ownerPassword: password,
-            permissions: {
-              printing: 'highResolution',
-              modifying: false,
-              copying: false,
-            },
-          });
-        } else if (password) {
-          alert("Password protection is not supported in this browser. PDF will be downloaded without password.");
-        }
-
-        doc.save(pdfName);
-        pdfModal.style.display = 'none';
-      }, 500);
-    }
 
     async function init() {
       document.getElementById('loading').style.display = 'flex';
@@ -866,20 +916,17 @@ canvas#categoryChart:hover {
 
     toggleDarkModeBtn.addEventListener("click", toggleDarkMode);
 
-    // Month change logic
     monthDropdown.addEventListener("change", () => {
       currentMonth = monthDropdown.value;
       DATA_URL = (currentMonth === ALL_MONTHS_LABEL) ? null : DATA_URLS[currentMonth];
       init();
     });
 
-    // Chart type logic
     chartTypeDropdown.addEventListener("change", () => {
       currentChartType = chartTypeDropdown.value;
       renderChart(toggleIncome.checked);
     });
 
-    // On page load
     populateMonthDropdown();
     init();
   </script>

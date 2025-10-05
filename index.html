@@ -411,7 +411,6 @@ canvas#categoryChart:hover {
 
     const ALL_MONTHS_LABEL = "All Months";
 
-    // Helper to get current month label
     function getCurrentMonthLabel() {
       const now = new Date();
       const monthNames = [
@@ -448,7 +447,6 @@ canvas#categoryChart:hover {
     const cancelDownloadBtn = document.getElementById('cancelDownloadBtn');
     const pdfModal = document.getElementById('pdfModal');
 
-    // Populate the month dropdown
     function populateMonthDropdown() {
       monthDropdown.innerHTML = "";
       const allOption = document.createElement("option");
@@ -715,23 +713,70 @@ canvas#categoryChart:hover {
       exportTableToPDF(pdfPasswordToggle.checked ? pdfPasswordInput.value : null);
     });
 
+    // --- Helper to generate summary points ---
+    function getSummaryPoints(transactions) {
+      if (!transactions || transactions.length === 0) return ["No data to summarize."];
+      let expenses = transactions.filter(tx => tx.category.toLowerCase() !== 'income');
+      let income = transactions.filter(tx => tx.category.toLowerCase() === 'income');
+
+      let totalExpense = expenses.reduce((sum, tx) => sum + parseFloat(tx.amount.replace(/[^\d.-]/g, '')), 0);
+      let totalIncome = income.reduce((sum, tx) => sum + parseFloat(tx.amount.replace(/[^\d.-]/g, '')), 0);
+
+      // Group by category
+      let byCategory = {};
+      expenses.forEach(tx => {
+        if (!byCategory[tx.category]) byCategory[tx.category] = 0;
+        byCategory[tx.category] += parseFloat(tx.amount.replace(/[^\d.-]/g, ''));
+      });
+
+      // Highest expense category
+      let sortedCategories = Object.entries(byCategory).sort((a,b) => b[1]-a[1]);
+      let highestCat = sortedCategories.length ? sortedCategories[0][0] : "None";
+      let highestAmt = sortedCategories.length ? sortedCategories[0][1] : 0;
+      let secondCat = sortedCategories.length > 1 ? sortedCategories[1][0] : null;
+      let secondAmt = sortedCategories.length > 1 ? sortedCategories[1][1] : null;
+
+      let points = [
+        `Total Expenses: Rs. ${totalExpense.toLocaleString()}`,
+        `Total Income: Rs. ${totalIncome.toLocaleString()}`,
+        `Net Balance: Rs. ${(totalIncome-totalExpense).toLocaleString()}`,
+        highestCat !== "None" ? `Highest expense category: ${highestCat} (Rs. ${highestAmt.toLocaleString()})` : "",
+        (secondCat && highestCat !== "None") ? 
+          `Compared to ${secondCat}, spent Rs. ${(highestAmt-secondAmt).toLocaleString()} more on ${highestCat}.` : "",
+      ].filter(Boolean);
+
+      return points;
+    }
+
+    // --- PDF Export section ---
     function exportTableToPDF(password = null) {
       pdfModal.style.display = 'flex';
       setTimeout(() => {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
 
-        doc.setFontSize(16);
-        doc.text("Finance Dashboard Transactions", 14, 20);
+        // --- 1. Gather context ---
+        const selectedCategory = categoryFilterTable.value;
+        const selectedMonthLabel = monthDropdown.value;
+        const now = new Date();
+        let year, monthName;
+        if (selectedMonthLabel !== ALL_MONTHS_LABEL) {
+          [monthName, year] = selectedMonthLabel.split(" ");
+        } else {
+          year = now.getFullYear();
+          monthName = now.toLocaleString('default', { month: 'long' });
+        }
+        let pdfName = "";
 
-        const columns = [
-          { header: 'Date', dataKey: 'date' },
-          { header: 'Name', dataKey: 'name' },
-          { header: 'Category', dataKey: 'category' },
-          { header: 'Amount', dataKey: 'amount' },
-          { header: 'Note', dataKey: 'note' }
-        ];
+        if (selectedCategory === "all") {
+          pdfName = `${year}_${monthName}_Transactions.pdf`;
+        } else {
+          pdfName = `${year}_${monthName}_Transactions_for_${selectedCategory}.pdf`;
+        }
 
+        let watermark = `Transactions - (${year} ${monthName}${selectedCategory !== "all" ? ", " + selectedCategory : ""})`;
+
+        // --- 2. Filter transactions for export ---
         const rows = [];
         document.querySelectorAll('#transactionsTable tbody tr').forEach(tr => {
           if (tr.style.display !== 'none') {
@@ -752,8 +797,24 @@ canvas#categoryChart:hover {
           return;
         }
 
+        // --- 3. Watermark / Title ---
+        doc.setFontSize(10);
+        doc.setTextColor(180);
+        doc.text(watermark, 200, 12, { align: 'right' });
+
+        doc.setFontSize(16);
+        doc.setTextColor(44, 62, 80);
+        doc.text("Finance Dashboard Transactions", 14, 20);
+
+        // --- 4. Table ---
         doc.autoTable({
-          columns: columns,
+          columns: [
+            { header: 'Date', dataKey: 'date' },
+            { header: 'Name', dataKey: 'name' },
+            { header: 'Category', dataKey: 'category' },
+            { header: 'Amount', dataKey: 'amount' },
+            { header: 'Note', dataKey: 'note' }
+          ],
           body: rows,
           startY: 30,
           styles: { fontSize: 10 },
@@ -761,13 +822,19 @@ canvas#categoryChart:hover {
           alternateRowStyles: { fillColor: [240, 240, 240] },
         });
 
-        // file name: YYYY-MM-transactions.pdf
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const filename = `${year}-${month}-transactions.pdf`;
+        // --- 5. Summary Section ---
+        let summaryY = doc.lastAutoTable.finalY + 10;
+        let summaryPoints = getSummaryPoints(rows);
+        doc.setFontSize(13);
+        doc.setTextColor(44, 62, 80);
+        doc.text("Summary", 14, summaryY);
+        doc.setFontSize(11);
+        doc.setTextColor(80);
+        summaryPoints.forEach((point, idx) => {
+          doc.text(`• ${point}`, 18, summaryY + 8 + idx * 7);
+        });
 
-        // Password protection (note: jsPDF does not natively support password unless using plugin)
+        // --- 6. Password protection ---
         if (password && doc.protect) {
           doc.protect({
             userPassword: password,
@@ -782,7 +849,7 @@ canvas#categoryChart:hover {
           alert("Password protection is not supported in this browser. PDF will be downloaded without password.");
         }
 
-        doc.save(filename);
+        doc.save(pdfName);
         pdfModal.style.display = 'none';
       }, 500);
     }

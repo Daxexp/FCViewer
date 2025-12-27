@@ -1,4 +1,4 @@
-// analytics-client-fixed2.js
+
 // Place in repo and include on the main page: <script src="/analytics-client-fixed2.js"></script>
 // Tailored for https://fclook.pages.dev hosting.
 

@@ -1,111 +1,88 @@
-// analytics-listener.js
-// Include in analytics.html (the popup page).
-// - Asks opener for data at load
-// - Listens for analytics-update messages
-// - Calls existing analyze/render pipeline in the analytics page
-// If analyze/render functions are not yet defined, queue the payload and run when ready.
+// analytics-listener-fixed2.js
+// Place in repo and include on analytics.html (popup).
+// Tailored for https://fclook.pages.dev hosting.
 
 (function () {
-  const ORIGIN = window.location.origin;
-  let pendingPayload = null;
-  let readyCheckTimer = null;
+  const ORIGIN = 'https://fclook.pages.dev';
+  let gotPayload = false;
+  let retryCount = 0;
+  let retryHandle = null;
 
-  // Try to process payload either by calling a global handler if present,
-  // or by calling the common functions used by the analytics page:
-  // analyze(), renderOverview(), renderTopList(), renderDailyTable(), renderStats(), renderCharts()
-  function processPayload(payload) {
-    if (!payload) return;
-    // If the analytics page explicitly exposes a handler, call it
-    if (typeof window.handleAnalyticsPayload === 'function') {
-      try { window.handleAnalyticsPayload(payload); return true; } catch (e) { console.warn(e); }
-    }
+  function log(...args){ console.debug('[analytics-listener]', ...args); }
 
-    // If core functions exist on the analytics page, call the pipeline
-    const haveAnalyze = typeof window.analyze === 'function';
-    const haveRenderOverview = typeof window.renderOverview === 'function';
-    const haveRenderTopList = typeof window.renderTopList === 'function';
-    const haveRenderDailyTable = typeof window.renderDailyTable === 'function';
-    const haveRenderStats = typeof window.renderStats === 'function';
-    const haveRenderCharts = typeof window.renderCharts === 'function';
-
-    if (haveAnalyze && haveRenderOverview && haveRenderTopList && haveRenderDailyTable && haveRenderStats && haveRenderCharts) {
-      try {
-        const month = payload.month || 'All Months';
-        const cat = payload.category || 'all';
-        // call existing analyze() to compute results
-        const analysis = window.analyze ? window.analyze(payload.transactions || [], payload.month, payload.category) : null;
-        // If analyze returned a full analysis object, reuse it; otherwise call pipeline manually
-        if (analysis) {
-          window.renderOverview(`${month} • ${cat}`, analysis);
-          window.renderTopList(analysis.topTxs || []);
-          window.renderDailyTable(analysis.dailySeries || []);
-          window.renderStats(analysis);
-          window.renderCharts(analysis);
-        } else {
-          // Fallback: try to reuse the analytics page's loadAndRender() style usage:
-          // Many analytics pages implement their own analyze/render functions; here we attempt to call them in order.
-          const analysis2 = window.analyze ? window.analyze(payload.transactions || [], payload.month, payload.category) : null;
-          if (analysis2) {
-            window.renderOverview(`${month} • ${cat}`, analysis2);
-          }
-        }
-        return true;
-      } catch (e) {
-        console.warn('processPayload error', e);
-        return false;
+  function processPayload(data){
+    try {
+      log('Processing payload', data && { month: data.month, category: data.category, txCount: (data.transactions||[]).length });
+      // If analytics page exposes handler, call it:
+      if (typeof window.handleAnalyticsPayload === 'function') {
+        window.handleAnalyticsPayload(data);
+      } else if (typeof window.__analytics_handlePayload === 'function') {
+        window.__analytics_handlePayload(data);
+      } else {
+        // store for the renderer to pick up
+        window.__analytics_pendingPayload = data;
+        log('Stored payload to window.__analytics_pendingPayload for later processing by renderer');
       }
+      // send ack back to opener if possible
+      try {
+        if (window.opener && !window.opener.closed && window.opener.location.origin === ORIGIN) {
+          window.opener.postMessage({ type:'analytics-ack', receivedAt: Date.now(), txCount: (data.transactions||[]).length }, ORIGIN);
+        }
+      } catch(e){}
+    } catch (e) {
+      console.warn('[analytics-listener] process error', e);
     }
-
-    // Not ready to process yet
-    return false;
   }
 
-  // When a message arrives from opener
   window.addEventListener('message', (ev) => {
     try {
       if (ev.origin !== ORIGIN) return;
-      const data = ev.data || {};
-      if (data.type === 'analytics-update') {
-        // attempt to process now
-        const ok = processPayload(data);
-        if (!ok) {
-          // store pending
-          pendingPayload = data;
-          // start timer to check readiness
-          if (!readyCheckTimer) {
-            readyCheckTimer = setInterval(() => {
-              if (processPayload(pendingPayload)) {
-                clearInterval(readyCheckTimer);
-                readyCheckTimer = null;
-                pendingPayload = null;
-              }
-            }, 300);
-          }
-        }
-      } else if (data.type === 'analytics-request') {
-        // If opener asked for something (rare), ignore or respond with current data if available
+      const d = ev.data || {};
+      if (d.type === 'analytics-update') {
+        gotPayload = true;
+        processPayload(d);
+      } else if (d.type === 'analytics-request') {
+        // ignore; main might send by mistake
+        log('Received analytics-request (ignored)');
       }
-    } catch (e) { console.warn('analytics listener error', e); }
+    } catch (e) { console.warn('[analytics-listener] message handler', e); }
   });
 
-  // Ask opener for initial data when loaded
-  function requestInitialData() {
+  function requestInitial(){
     try {
       if (window.opener && !window.opener.closed && window.opener.location.origin === ORIGIN) {
+        log('Requesting initial snapshot from opener');
         window.opener.postMessage({ type: 'analytics-request' }, ORIGIN);
+      } else {
+        // try to read opener globals if same-origin access is allowed
+        try {
+          if (window.opener && !window.opener.closed && Array.isArray(window.opener.globalTransactions)) {
+            const payload = { type:'analytics-update', month: window.opener.currentMonth || 'All Months', category: (window.opener.document.getElementById('categoryFilterTable')?.value || 'all'), transactions: window.opener.globalTransactions || [] };
+            processPayload(payload);
+            gotPayload = true;
+          }
+        } catch(e){}
       }
     } catch (e) {
-      // ignore cross-origin
+      console.warn('[analytics-listener] requestInitial error', e);
     }
   }
 
-  // Expose a manual API optionally
-  window.requestAnalyticsSnapshot = requestInitialData;
-
-  // on load, request initial data
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', requestInitialData);
-  } else {
-    requestInitialData();
+  function startRetries(){
+    if (retryHandle) return;
+    retryHandle = setInterval(() => {
+      if (gotPayload || retryCount > 8) { clearInterval(retryHandle); retryHandle = null; return; }
+      retryCount++;
+      requestInitial();
+    }, 800);
   }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => { requestInitial(); startRetries(); });
+  } else {
+    requestInitial(); startRetries();
+  }
+
+  // expose for debugging
+  window.requestAnalyticsSnapshot = requestInitial;
 })();

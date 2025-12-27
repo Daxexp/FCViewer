@@ -1,0 +1,647 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Finance Analytics</title>
+
+  <!-- Chart.js for charts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    /*
+      Glassy, professional look matching your main page.
+      This file only contains analytics UI and logic.
+      It reads selections and data from window.opener (the main page).
+    */
+
+    :root{
+      --bg: linear-gradient(180deg,#e9f6ff,#f7fbff 60%);
+      --text: #102028;
+      --glass: rgba(255,255,255,0.6);
+      --glass-border: rgba(255,255,255,0.5);
+      --accent: #2366ff;
+      --muted: #5f7b98;
+      --card-shadow: 0 12px 40px rgba(14,35,70,0.08);
+      --glass-blur: 8px;
+      --success: #2ecc71;
+      --danger: #e74c3c;
+    }
+
+    body.dark {
+      --bg: linear-gradient(180deg,#071026,#040814 70%);
+      --text: #e6eefc;
+      --glass: rgba(12,18,28,0.6);
+      --glass-border: rgba(255,255,255,0.04);
+      --accent: #6ea8ff;
+      --muted: #98a8cc;
+      --card-shadow: 0 12px 40px rgba(2,6,23,0.6);
+      --glass-blur: 6px;
+    }
+
+    html,body{height:100%;margin:0;padding:0;font-family:Inter,Arial,Helvetica,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;box-sizing:border-box}
+    .wrap{
+      width:min(1150px,96%);
+      margin:18px auto;
+      backdrop-filter: blur(var(--glass-blur)) saturate(120%);
+      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(120%);
+    }
+
+    .card {
+      background: var(--glass);
+      border-radius:14px;
+      border:1px solid var(--glass-border);
+      box-shadow: var(--card-shadow);
+      padding:18px;
+      margin-bottom:14px;
+    }
+
+    header.card {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding:14px 18px;
+    }
+    header .left {
+      display:flex;
+      gap:12px;
+      align-items:center;
+    }
+    h1{
+      margin:0;
+      font-size:1.25rem;
+      color:var(--accent);
+      font-weight:700;
+    }
+    .sub {
+      color:var(--muted);
+      font-size:0.95rem;
+    }
+
+    .controls {
+      display:flex;
+      gap:10px;
+      align-items:center;
+    }
+
+    button, .small-btn {
+      background: linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.06));
+      border:1px solid var(--glass-border);
+      color:var(--text);
+      padding:8px 12px;
+      border-radius:10px;
+      cursor:pointer;
+      box-shadow: 0 6px 18px rgba(14,35,70,0.06);
+      transition:transform .12s ease;
+      font-weight:600;
+    }
+    .small-btn { padding:6px 10px; font-size:0.95rem }
+    button:hover, .small-btn:hover { transform:translateY(-3px) }
+
+    .grid {
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:12px;
+      align-items:start;
+    }
+    .grid.full { grid-template-columns: 1fr; }
+
+    .stat {
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+    }
+    .stat .label { color:var(--muted); font-size:0.9rem }
+    .stat .value { font-size:1.25rem; font-weight:800; color:var(--text) }
+
+    .mini-grid {
+      display:grid;
+      grid-template-columns: repeat(2,1fr);
+      gap:10px;
+      margin-top:8px;
+    }
+
+    canvas { width:100% !important; height:260px !important; border-radius:10px; background:rgba(255,255,255,0.03); border:1px solid rgba(0,0,0,0.04) }
+
+    table { width:100%; border-collapse:collapse; margin-top:12px; font-size:0.95rem }
+    th,td { padding:8px 10px; text-align:left; border-bottom:1px solid rgba(0,0,0,0.04) }
+    th { color:var(--muted); font-weight:700; font-size:0.85rem }
+
+    .list {
+      max-height:240px;
+      overflow:auto;
+      padding-right:6px;
+    }
+
+    .top-list li {
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      padding:6px 8px;
+      border-radius:8px;
+    }
+    .highlight { color:var(--accent); font-weight:700 }
+
+    footer{ text-align:right; color:var(--muted); font-size:0.85rem; margin-top:6px }
+
+    /* responsive */
+    @media (max-width:900px){
+      .grid { grid-template-columns: 1fr; }
+      canvas { height:220px !important }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap" id="wrap">
+    <header class="card" role="banner">
+      <div class="left">
+        <h1>Analytics</h1>
+        <div class="sub" id="subtitle">Loading selection...</div>
+      </div>
+      <div class="controls">
+        <button id="refreshBtn" class="small-btn">Refresh</button>
+        <button id="closeBtn" class="small-btn">Close</button>
+      </div>
+    </header>
+
+    <section class="card" id="overviewCard">
+      <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap">
+        <div style="min-width:220px">
+          <div class="stat">
+            <div class="label">Selected</div>
+            <div class="value" id="selLabel">—</div>
+          </div>
+        </div>
+
+        <div style="flex:1">
+          <div class="mini-grid" id="overviewStats">
+            <div class="stat">
+              <div class="label">Transactions</div>
+              <div class="value" id="statCount">0</div>
+            </div>
+            <div class="stat">
+              <div class="label">Total (All)</div>
+              <div class="value" id="statTotal">Rs. 0</div>
+            </div>
+            <div class="stat">
+              <div class="label">Total Expenses</div>
+              <div class="value" id="statExpenses">Rs. 0</div>
+            </div>
+            <div class="stat">
+              <div class="label">Total Income</div>
+              <div class="value" id="statIncome">Rs. 0</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:12px;color:var(--muted);font-size:0.95rem" id="rangeInfo"></div>
+    </section>
+
+    <div class="grid" id="chartsGrid">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div><strong>Daily totals</strong><div style="color:var(--muted);font-size:0.9rem">Spending per day in the selected range</div></div>
+          <div id="dailySummary" style="text-align:right;color:var(--muted)"></div>
+        </div>
+        <canvas id="dailyChart"></canvas>
+      </div>
+
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div><strong>Category share</strong><div style="color:var(--muted);font-size:0.9rem">Top categories by amount</div></div>
+          <div id="catSummary" style="text-align:right;color:var(--muted)"></div>
+        </div>
+        <canvas id="catChart"></canvas>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <strong>Top transactions</strong>
+        <div class="list">
+          <ul id="topTxList" class="top-list" style="list-style:none;padding-left:0;margin:8px 0"></ul>
+        </div>
+      </div>
+
+      <div class="card">
+        <strong>Statistics</strong>
+        <table>
+          <tbody>
+            <tr><th>Average per day</th><td id="avgPerDay">Rs. 0</td></tr>
+            <tr><th>Average per transaction</th><td id="avgPerTx">Rs. 0</td></tr>
+            <tr><th>Median transaction</th><td id="medianTx">Rs. 0</td></tr>
+            <tr><th>Std. deviation</th><td id="stdDev">Rs. 0</td></tr>
+            <tr><th>Busiest day</th><td id="busiestDay">—</td></tr>
+            <tr><th>Average by weekday</th><td id="avgWeekday">—</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <strong>Breakdown by day (table)</strong>
+      <div style="overflow:auto;margin-top:8px">
+        <table id="dailyTable">
+          <thead><tr><th>Date</th><th>Total</th><th>#Tx</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <footer class="sub">Data read from main page. Use Refresh to re-sync with main selections.</footer>
+  </div>
+
+  <script>
+    // Analytics page logic
+    // It reads the main page (window.opener) for:
+    //   - monthDropdown.value
+    //   - categoryFilterTable.value
+    //   - globalTransactions (preferred) OR it will attempt to fetch via opener.DATA_URLS if needed.
+
+    // Safety: handle missing opener gracefully.
+    const subtitleEl = document.getElementById('subtitle');
+    const selLabelEl = document.getElementById('selLabel');
+    const statCountEl = document.getElementById('statCount');
+    const statTotalEl = document.getElementById('statTotal');
+    const statExpensesEl = document.getElementById('statExpenses');
+    const statIncomeEl = document.getElementById('statIncome');
+    const rangeInfoEl = document.getElementById('rangeInfo');
+
+    const avgPerDayEl = document.getElementById('avgPerDay');
+    const avgPerTxEl = document.getElementById('avgPerTx');
+    const medianTxEl = document.getElementById('medianTx');
+    const stdDevEl = document.getElementById('stdDev');
+    const busiestDayEl = document.getElementById('busiestDay');
+    const avgWeekdayEl = document.getElementById('avgWeekday');
+
+    const topTxList = document.getElementById('topTxList');
+    const dailyTableBody = document.querySelector('#dailyTable tbody');
+    const dailySummaryEl = document.getElementById('dailySummary');
+    const catSummaryEl = document.getElementById('catSummary');
+
+    const refreshBtn = document.getElementById('refreshBtn');
+    const closeBtn = document.getElementById('closeBtn');
+
+    let dailyChart, catChart;
+
+    closeBtn.addEventListener('click', () => window.close());
+    refreshBtn.addEventListener('click', () => { loadAndRender(); });
+
+    // Utility helpers
+    function parseAmount(v){
+      if (v === null || v === undefined) return 0;
+      // try to coerce numbers or strings like "1234" or "1,234"
+      if (typeof v === 'number') return v;
+      let s = String(v).replace(/[^\d.-]/g,'');
+      return s === '' ? 0 : parseFloat(s);
+    }
+    function formatRs(n){
+      if (!isFinite(n)) return 'Rs. 0';
+      return 'Rs. ' + Math.round(n).toLocaleString();
+    }
+    function mean(arr){ if (!arr.length) return 0; return arr.reduce((a,b)=>a+b,0)/arr.length }
+    function median(arr){ if (!arr.length) return 0; const s = [...arr].sort((a,b)=>a-b); const m=Math.floor(s.length/2); return s.length%2 ? s[m] : (s[m-1]+s[m])/2 }
+    function stddev(arr){
+      if (!arr.length) return 0;
+      const m = mean(arr);
+      const v = arr.reduce((s,x)=>s+(x-m)**2,0)/arr.length;
+      return Math.sqrt(v);
+    }
+
+    // converts YYYY-MM-DD, or other date strings - returns YYYY-MM-DD key
+    function dateKey(d){
+      const dt = new Date(d);
+      if (isNaN(dt)) return null;
+      const y = dt.getFullYear();
+      const m = String(dt.getMonth()+1).padStart(2,'0');
+      const day = String(dt.getDate()).padStart(2,'0');
+      return `${y}-${m}-${day}`;
+    }
+    function dateFromKey(k){ const [y,m,d] = k.split('-').map(Number); return new Date(y,m-1,d) }
+
+    // primary loader: attempts to read selections + data from opener
+    async function getSourceData(){
+      const openerWin = window.opener;
+      if (!openerWin){
+        subtitleEl.textContent = 'No opener window detected — open Analytics from the main page using window.open';
+        return null;
+      }
+
+      // read selections
+      const monthSelect = openerWin.document.getElementById('monthDropdown');
+      const catSelect = openerWin.document.getElementById('categoryFilterTable');
+
+      const monthVal = monthSelect ? monthSelect.value : (openerWin.currentMonth || 'All Months');
+      const catVal = catSelect ? catSelect.value : 'all';
+
+      // try quickest: use opener's globalTransactions and globalSummary if present
+      if (Array.isArray(openerWin.globalTransactions) && Object.keys(openerWin.globalSummary||{}).length >= 0){
+        return {
+          source: 'opener',
+          month: monthVal,
+          category: catVal,
+          transactions: openerWin.globalTransactions.slice() // shallow copy
+        };
+      }
+
+      // fallback: try to call opener.fetchData() if available
+      if (typeof openerWin.fetchData === 'function'){
+        try {
+          // try to temporarily set opener currentMonth to our target then call
+          const prev = openerWin.currentMonth;
+          openerWin.currentMonth = monthVal;
+          const data = await openerWin.fetchData();
+          openerWin.currentMonth = prev;
+          if (data && Array.isArray(data.transactions)) {
+            return { source:'opener-fetch', month:monthVal, category:catVal, transactions: data.transactions.slice() };
+          }
+        } catch(e){ /* ignore and continue */ }
+      }
+
+      // last fallback: if opener defines DATA_URLS, fetch directly based on monthVal
+      if (openerWin.DATA_URLS){
+        if (monthVal === 'All Months'){
+          // fetch all
+          const urls = Object.values(openerWin.DATA_URLS);
+          const results = await Promise.all(urls.map(u=>fetch(u).then(r=>r.ok?r.json():null).catch(()=>null)));
+          const tx = [];
+          results.forEach(r=>{ if (r && r.transactions) tx.push(...r.transactions) });
+          return { source:'fetch', month:monthVal, category:catVal, transactions: tx };
+        } else {
+          const url = openerWin.DATA_URLS[monthVal];
+          if (url){
+            const res = await fetch(url).then(r=>r.ok?r.json():null).catch(()=>null);
+            if (res && res.transactions) return { source:'fetch', month:monthVal, category:catVal, transactions: res.transactions };
+          }
+        }
+      }
+
+      // nothing available
+      subtitleEl.textContent = 'Unable to read data from main page. Make sure the main page has loaded data (globalTransactions) and open Analytics from it.';
+      return null;
+    }
+
+    // Aggregate and compute analytics
+    function analyze(transactions, monthFilter, categoryFilter){
+      // Prepare filtered tx list
+      let txs = (transactions || []).map(t => ({
+        date: t.date || t.Date || '',
+        name: t.name || t.name || t.Name || '',
+        category: t.category || t.Category || '',
+        amount: parseAmount(t.amount ?? t.Amount ?? 0),
+        note: t.note || t.Note || ''
+      }));
+
+      // If monthFilter != All Months, try filter by month name + year (main uses "August 2025")
+      if (monthFilter && monthFilter !== 'All Months'){
+        // try to parse month + year
+        const parts = monthFilter.split(' ');
+        if (parts.length === 2){
+          const monthName = parts[0];
+          const yearNum = Number(parts[1]);
+          const monthIndex = new Date(`${monthName} 1, ${yearNum}`).getMonth();
+          txs = txs.filter(t => {
+            const d = new Date(t.date);
+            return !isNaN(d) && d.getFullYear() === yearNum && d.getMonth() === monthIndex;
+          });
+        }
+      }
+
+      // If categoryFilter defined and not 'all', filter by exact match
+      if (categoryFilter && categoryFilter !== 'all'){
+        txs = txs.filter(t => (t.category || '').toString() === categoryFilter);
+      }
+
+      // Normalize dates to keys and compute daily totals
+      const dailyMap = new Map(); // dateKey -> { total, count, txs:[] }
+      const categoryMap = new Map(); // category -> total
+      const amounts = []; // all amounts (signed)
+      let totalIncome = 0, totalExpenses = 0;
+      txs.forEach(t => {
+        const key = dateKey(t.date);
+        if (!key) return;
+        const entry = dailyMap.get(key) || { total:0, count:0, txs:[] };
+        entry.total += t.amount;
+        entry.count += 1;
+        entry.txs.push(t);
+        dailyMap.set(key, entry);
+
+        const cat = (t.category || 'Uncategorized').toString();
+        categoryMap.set(cat, (categoryMap.get(cat) || 0) + t.amount);
+
+        amounts.push(t.amount);
+        if ((cat||'').trim().toLowerCase() === 'income' || t.amount > 0) {
+          totalIncome += t.amount > 0 ? t.amount : 0;
+        }
+        if (t.amount < 0 || (cat||'').trim().toLowerCase() !== 'income' && t.amount > 0) {
+          // main app seems to store positive numbers for amounts; treat non-income as expense
+          // we treat "income" category as income, everything else as expense
+          if ((cat||'').trim().toLowerCase() !== 'income') totalExpenses += t.amount;
+        }
+      });
+
+      // Determine date range
+      const dateKeys = Array.from(dailyMap.keys()).sort();
+      let range = { start:null, end:null, days:0 };
+      if (dateKeys.length){
+        range.start = dateFromKey(dateKeys[0]);
+        range.end = dateFromKey(dateKeys[dateKeys.length-1]);
+        // days in range inclusive
+        const days = Math.max(1, Math.round((range.end - range.start)/(1000*60*60*24))+1);
+        range.days = days;
+      } else {
+        // fallback: maybe use transactions array dates if any
+        range = { start: null, end: null, days:0 };
+      }
+
+      // Daily totals array sorted by date (fill missing days with 0)
+      const dailySeries = [];
+      if (range.days > 0){
+        let cur = new Date(range.start);
+        for (let i=0;i<range.days;i++){
+          const k = dateKey(cur);
+          const v = dailyMap.get(k) || { total:0, count:0, txs:[] };
+          dailySeries.push({ date: k, total: v.total, count: v.count, txs: v.txs });
+          cur.setDate(cur.getDate()+1);
+        }
+      }
+
+      // Top transactions (by absolute amount)
+      const sortedTxs = txs.slice().sort((a,b)=>Math.abs(b.amount) - Math.abs(a.amount));
+      const topTxs = sortedTxs.slice(0,8);
+
+      // Stats
+      const totalsArray = dailySeries.map(d=>d.total);
+      const sumAll = amounts.reduce((s,x)=>s+x,0);
+      const totalTx = txs.length;
+      const avgPerDay = range.days ? (totalsArray.reduce((s,x)=>s+x,0)/range.days) : 0;
+      const avgPerTx = totalTx ? (sumAll/totalTx) : 0;
+      const medTx = median(amounts);
+      const sd = stddev(amounts);
+
+      // busiest day: date with highest total (by absolute)
+      let busiest = null;
+      if (dailySeries.length){
+        busiest = dailySeries.reduce((best,cur)=>{
+          if (!best) return cur;
+          return Math.abs(cur.total) > Math.abs(best.total) ? cur : best;
+        }, null);
+      }
+
+      // average by weekday
+      const weekdaySums = [0,0,0,0,0,0,0];
+      const weekdayCounts = [0,0,0,0,0,0,0];
+      dailySeries.forEach(d => {
+        const dt = dateFromKey(d.date);
+        const wd = dt.getDay();
+        weekdaySums[wd] += d.total;
+        weekdayCounts[wd] += 1;
+      });
+      const weekdayAvgs = weekdaySums.map((s,i)=> weekdayCounts[i]? s/weekdayCounts[i] : 0 );
+
+      // Top categories sorted
+      const catArray = Array.from(categoryMap.entries()).map(([k,v])=>({category:k,total:v}));
+      catArray.sort((a,b)=>b.total - a.total);
+
+      return {
+        txs,
+        dailySeries,
+        topTxs,
+        sumAll,
+        totalIncome,
+        totalExpenses,
+        totalTx,
+        avgPerDay,
+        avgPerTx,
+        medTx,
+        sd,
+        busiest,
+        weekdayAvgs,
+        catArray,
+        range
+      };
+    }
+
+    // Render functions
+    function renderOverview(selText, analysis){
+      selLabelEl.textContent = selText;
+      statCountEl.textContent = (analysis.totalTx || 0).toLocaleString();
+      statTotalEl.textContent = formatRs(analysis.sumAll || 0);
+      statExpensesEl.textContent = formatRs(Math.abs(analysis.totalExpenses || 0));
+      statIncomeEl.textContent = formatRs(analysis.totalIncome || 0);
+
+      const r = analysis.range;
+      if (r && r.start){
+        rangeInfoEl.textContent = `Range: ${r.start.toDateString()} — ${r.end.toDateString()} (${r.days} day${r.days>1?'s':''})`;
+      } else {
+        rangeInfoEl.textContent = `Range: no data`;
+      }
+    }
+
+    function renderTopList(topTxs){
+      topTxList.innerHTML = '';
+      if (!topTxs || !topTxs.length){
+        topTxList.innerHTML = '<li style="color:var(--muted)">No transactions</li>'; return;
+      }
+      topTxs.forEach(t=>{
+        const li = document.createElement('li');
+        li.innerHTML = `<span style="color:var(--muted)">${t.date} — ${escapeHtml(t.name || t.category || '—')}</span> <span class="highlight">${formatRs(t.amount)}</span>`;
+        topTxList.appendChild(li);
+      });
+    }
+
+    function renderDailyTable(dailySeries){
+      dailyTableBody.innerHTML = '';
+      dailySeries.forEach(d=>{
+        const tr = document.createElement('tr');
+        const dateStr = d.date;
+        const td0 = `<td>${dateStr}</td>`;
+        const td1 = `<td>${formatRs(d.total)}</td>`;
+        const td2 = `<td>${d.count}</td>`;
+        tr.innerHTML = td0 + td1 + td2;
+        dailyTableBody.appendChild(tr);
+      });
+    }
+
+    function renderStats(analysis){
+      avgPerDayEl.textContent = formatRs(analysis.avgPerDay);
+      avgPerTxEl.textContent = formatRs(analysis.avgPerTx);
+      medianTxEl.textContent = formatRs(analysis.medTx);
+      stdDevEl.textContent = Math.round(analysis.sd).toLocaleString();
+      busiestDayEl.textContent = analysis.busiest ? `${analysis.busiest.date} — ${formatRs(analysis.busiest.total)}` : '—';
+      avgWeekdayEl.innerHTML = analysis.weekdayAvgs.map((v,i)=>['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][i]+': '+formatRs(v)).join('; ');
+    }
+
+    function renderCharts(analysis){
+      // daily bar chart
+      const labels = analysis.dailySeries.map(d=>d.date);
+      const data = analysis.dailySeries.map(d=>Math.round(d.total));
+      const ctx = document.getElementById('dailyChart').getContext('2d');
+      if (dailyChart) dailyChart.destroy();
+      dailyChart = new Chart(ctx, {
+        type: 'bar',
+        data: { labels, datasets: [{ label: 'Total', data, backgroundColor: 'rgba(35,102,255,0.86)' }] },
+        options: { responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}} }
+      });
+
+      // category donut
+      const catLabels = analysis.catArray.map(c=>c.category);
+      const catData = analysis.catArray.map(c=>Math.round(c.total));
+      const ctx2 = document.getElementById('catChart').getContext('2d');
+      if (catChart) catChart.destroy();
+      catChart = new Chart(ctx2, {
+        type: 'doughnut',
+        data: { labels: catLabels, datasets: [{ data: catData, backgroundColor: generatePalette(catLabels.length) }] },
+        options: { responsive:true, plugins:{legend:{position:'right'}} }
+      });
+
+      // summaries
+      dailySummaryEl.textContent = `Days: ${analysis.dailySeries.length}`;
+      catSummaryEl.textContent = `Cats: ${analysis.catArray.length}`;
+    }
+
+    function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]) }
+
+    function generatePalette(n){
+      const base = ['#FF6384','#36A2EB','#FFCE56','#8BC34A','#FF7043','#7E57C2','#26A69A','#FFB300','#8D6E63','#789262'];
+      const arr = [];
+      for (let i=0;i<n;i++) arr.push(base[i % base.length]);
+      return arr;
+    }
+
+    // main entry: load data from opener, analyze, render
+    async function loadAndRender(){
+      subtitleEl.textContent = 'Reading selection from main page...';
+      const src = await getSourceData();
+      if (!src){
+        return;
+      }
+
+      const selText = `${src.month} • ${src.category}`;
+      subtitleEl.textContent = `Based on: ${selText}`;
+      selLabelEl.textContent = selText;
+
+      const analysis = analyze(src.transactions, src.month, src.category);
+      renderOverview(selText, analysis);
+      renderTopList(analysis.topTxs);
+      renderDailyTable(analysis.dailySeries);
+      renderStats(analysis);
+      renderCharts(analysis);
+    }
+
+    // auto-run
+    (function init(){
+      // match dark mode with opener if possible
+      try {
+        if (window.opener && window.opener.document && window.opener.document.body && window.opener.document.body.classList.contains('dark')) {
+          document.body.classList.add('dark');
+        }
+      } catch(e){ /* ignore cross-origin or missing opener */ }
+
+      loadAndRender();
+    })();
+  </script>
+</body>
+</html>

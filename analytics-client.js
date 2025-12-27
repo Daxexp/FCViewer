@@ -1,68 +1,163 @@
-// analytics-listener-fixed.js
-// Include in analytics.html. It requests initial data safely and retries until it receives it.
-// Keeps listening for analytics-update messages.
+// analytics-client-fixed2.js
+// Place in repo and include on the main page: <script src="/analytics-client-fixed2.js"></script>
+// Tailored for https://fclook.pages.dev hosting.
 
 (function () {
-  const ORIGIN = window.location.origin;
-  let gotInitial = false;
-  let retryHandle = null;
-  let retryCount = 0;
+  const ANALYTICS_URL = 'https://fclook.pages.dev/analytics.html';
+  const ORIGIN = 'https://fclook.pages.dev';
+  let analyticsWindow = null;
+  let watcherInterval = null;
+  let lastSnapshot = '';
 
-  // Ask opener for data (safe same-origin)
-  function requestInitialData() {
+  function log(...args){ console.debug('[analytics-client]', ...args); }
+
+  function buildAnalyticsPayload() {
+    const monthEl = document.getElementById('monthDropdown');
+    const catEl = document.getElementById('categoryFilterTable');
+
+    const month = monthEl ? monthEl.value : (window.currentMonth || 'All Months');
+    const category = catEl ? catEl.value : 'all';
+
+    const summary = window.globalSummary ? JSON.parse(JSON.stringify(window.globalSummary)) : {};
+    const transactions = Array.isArray(window.globalTransactions) ? window.globalTransactions.slice() : [];
+
+    return {
+      type: 'analytics-update',
+      month,
+      category,
+      summary,
+      transactions,
+      sentAt: Date.now()
+    };
+  }
+
+  function sendAnalyticsUpdate() {
     try {
-      if (window.opener && !window.opener.closed && window.opener.location.origin === ORIGIN) {
-        window.opener.postMessage({ type: 'analytics-request' }, ORIGIN);
-      } else {
-        // If opener not present or cross-origin, do nothing — analytics page may still read opener globals if allowed
+      if (!analyticsWindow || analyticsWindow.closed) {
+        log('No analytics popup window to send to.');
+        return;
       }
+      const payload = buildAnalyticsPayload();
+      analyticsWindow.postMessage(payload, ORIGIN);
+      log('Sent analytics-update to popup', { month: payload.month, category: payload.category, txCount: payload.transactions.length });
     } catch (e) {
-      // cross-origin or no opener
+      console.warn('[analytics-client] send failed', e);
     }
   }
 
-  // When analytics-update message arrives, process it (analytics page already has handler)
+  // open popup on user click - required to avoid popup blocking
+  function openAnalyticsPopup() {
+    try {
+      if (!analyticsWindow || analyticsWindow.closed) {
+        analyticsWindow = window.open(ANALYTICS_URL, 'finance_analytics', 'width=1100,height=820');
+        log('Opened analytics popup', ANALYTICS_URL);
+        // Send initial update after a short delay so popup has time to load listeners
+        setTimeout(() => sendAnalyticsUpdate(), 700);
+      } else {
+        analyticsWindow.focus();
+        sendAnalyticsUpdate();
+      }
+      startWatcher();
+    } catch (e) {
+      console.error('[analytics-client] open error', e);
+    }
+  }
+
+  // Listen for analytics-request from popup, and for ack messages
   window.addEventListener('message', (ev) => {
     try {
-      if (ev.origin !== ORIGIN) return;
-      const data = ev.data || {};
-      if (data.type === 'analytics-update') {
-        gotInitial = true;
-        retryCount = 0;
-        // if analytics page exposes handler use it, otherwise use fallback
-        if (typeof window.handleAnalyticsPayload === 'function') {
-          window.handleAnalyticsPayload(data);
-        } else if (typeof window.__analytics_handlePayload === 'function') {
-          window.__analytics_handlePayload(data);
-        } else {
-          // fallback: store to window so renderer can pick it up
-          window.__analytics_pendingPayload = data;
-        }
-      } else if (data.type === 'analytics-request') {
-        // main might accidentally send this — ignore
+      if (ev.origin !== ORIGIN) {
+        // ignore other-origins
+        return;
       }
-    } catch (e) { console.warn('analytics-listener message error', e); }
+      const data = ev.data || {};
+      if (data.type === 'analytics-request') {
+        log('Received analytics-request from popup; sending snapshot');
+        // send to the event source if available
+        const targetWin = ev.source || analyticsWindow;
+        if (targetWin && typeof targetWin.postMessage === 'function') {
+          targetWin.postMessage(buildAnalyticsPayload(), ORIGIN);
+        }
+      } else if (data.type === 'analytics-ack') {
+        log('Received analytics-ack from popup', data);
+      }
+    } catch (e) {
+      console.warn('[analytics-client] message handler error', e);
+    }
   });
 
-  // Repeatedly request initial data until received or until user closes
-  function startRequestRetries() {
-    if (retryHandle) return;
-    retryHandle = setInterval(() => {
-      if (gotInitial || retryCount > 8) { clearInterval(retryHandle); retryHandle = null; return; }
-      requestInitialData();
-      retryCount++;
-    }, 700);
+  // Create a visible glassy "Analytics" button (user must click it)
+  function createOpenButton() {
+    if (document.getElementById('openAnalyticsBtn')) return;
+    const container = document.createElement('div');
+    container.id = 'openAnalyticsBtn';
+    container.style.position = 'fixed';
+    container.style.right = '24px';
+    container.style.bottom = '20px';
+    container.style.zIndex = '9999';
+    container.style.fontFamily = 'Inter, Arial, sans-serif';
+
+    const btn = document.createElement('button');
+    btn.innerText = 'Analytics';
+    btn.title = 'Open Analytics';
+    btn.onclick = () => openAnalyticsPopup();
+
+    // Glassy styling (keeps with theme)
+    btn.style.padding = '10px 14px';
+    btn.style.borderRadius = '12px';
+    btn.style.border = '1px solid rgba(255,255,255,0.35)';
+    btn.style.background = 'linear-gradient(180deg, rgba(255,255,255,0.14), rgba(255,255,255,0.06))';
+    btn.style.backdropFilter = 'blur(6px)';
+    btn.style.color = 'inherit';
+    btn.style.cursor = 'pointer';
+    btn.style.boxShadow = '0 8px 28px rgba(0,0,0,0.18)';
+    btn.style.fontWeight = '600';
+    btn.style.fontSize = '14px';
+
+    container.appendChild(btn);
+    document.body.appendChild(container);
+    log('Analytics open button created');
   }
 
-  // On load, request initial and start retry
+  // Watch for changes and send updates when popup exists
+  function startWatcher() {
+    if (watcherInterval) return;
+    lastSnapshot = JSON.stringify({ s: window.globalSummary || {}, t: (window.globalTransactions||[]).length, m: document.getElementById('monthDropdown')?.value || '' , c: document.getElementById('categoryFilterTable')?.value || '' });
+
+    watcherInterval = setInterval(() => {
+      try {
+        const snapshot = JSON.stringify({ s: window.globalSummary || {}, t: (window.globalTransactions||[]).length, m: document.getElementById('monthDropdown')?.value || '' , c: document.getElementById('categoryFilterTable')?.value || '' });
+        if (snapshot !== lastSnapshot) {
+          lastSnapshot = snapshot;
+          if (analyticsWindow && !analyticsWindow.closed) {
+            sendAnalyticsUpdate();
+          } else {
+            // popup not open; don't open automatically to avoid pop-up creation not by user
+            log('Detected data change but analytics popup not open');
+          }
+        }
+        if (analyticsWindow && analyticsWindow.closed) analyticsWindow = null;
+      } catch (e) { /* ignore */ }
+    }, 1200);
+  }
+
+  // add listeners to dropdowns for faster update
+  function attachDropdownListeners() {
+    const monthEl = document.getElementById('monthDropdown');
+    const catEl = document.getElementById('categoryFilterTable');
+    if (monthEl) monthEl.addEventListener('change', () => { sendAnalyticsUpdate(); });
+    if (catEl) catEl.addEventListener('change', () => { sendAnalyticsUpdate(); });
+  }
+
+  // Expose functions for debugging / manual usage
+  window.openAnalyticsPopup = openAnalyticsPopup;
+  window.sendAnalyticsUpdate = sendAnalyticsUpdate;
+
+  // bootstrap on DOM ready
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => { requestInitialData(); startRequestRetries(); });
+    document.addEventListener('DOMContentLoaded', () => { createOpenButton(); attachDropdownListeners(); });
   } else {
-    requestInitialData(); startRequestRetries();
+    createOpenButton(); attachDropdownListeners();
   }
 
-  // When user closes popup it will just remain closed. Nothing else to do here.
-
-  // Optional: expose a manual request function
-  window.requestAnalyticsSnapshot = requestInitialData;
 })();

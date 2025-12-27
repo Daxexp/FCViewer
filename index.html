@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Finance Dashboard</title>
+  <link rel="icon" href="https://i.imgur.com/0NukxIB.jpeg" type="image/png">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+
+    /*
+      Glassy appearance only.
+      I changed only CSS to add a frosted/glass look. No HTML or JS was modified.
+    */
+
+    :root {
+      --bg-color: linear-gradient(180deg,#e9f2ff 0%, #f6fbff 60%);
+      --text-color: #102028;
+      --primary-color: #2366ff;
+      --card-bg: rgba(255,255,255,0.56); /* semi-translucent glass */
+      --card-border: rgba(255,255,255,0.5);
+      --border-color: rgba(16,32,40,0.06);
+      --income-color: #2ecc71;
+      --expense-color: #e74c3c;
+      --header-bg: linear-gradient(90deg, rgba(35,102,255,0.95), rgba(37,99,235,0.9));
+      --header-text: #fff;
+      --accent-bg: rgba(227,242,253,0.45);
+      --box-shadow: 0 10px 30px rgba(14,35,70,0.12);
+      --hover-bg: rgba(227,242,253,0.55);
+      --glass-blur: 8px;
+    }
+
+    body.dark {
+      --bg-color: linear-gradient(180deg,#061126 0%, #04101a 60%);
+      --text-color: #e6eefc;
+      --primary-color: #6ea8ff;
+      --card-bg: rgba(12,18,28,0.56);
+      --card-border: rgba(255,255,255,0.04);
+      --border-color: rgba(255,255,255,0.04);
+      --income-color: #43a047;
+      --expense-color: #ef5350;
+      --header-bg: linear-gradient(90deg, rgba(55,115,255,0.14), rgba(37,99,235,0.12));
+      --header-text: #e6eefc;
+      --accent-bg: rgba(35,57,93,0.36);
+      --box-shadow: 0 10px 30px rgba(2,6,23,0.6);
+      --hover-bg: rgba(255,255,255,0.02);
+      --glass-blur: 6px;
+    }
+
+    /* page */
+    body {
+      font-family: 'Inter', Arial, sans-serif;
+      background: var(--bg-color);
+      color: var(--text-color);
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      transition: background-color 0.25s ease, color 0.25s ease;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    h1 {
+      text-align: center;
+      font-weight: 700;
+      font-size: 2.5rem;
+      margin-bottom: 8px;
+      color: var(--primary-color);
+      letter-spacing: 1px;
+      padding: 28px 12px 6px;
+    }
+
+    h2 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--primary-color);
+      margin: 36px 0 14px 0;
+      text-align: left;
+    }
+
+    #charts, #filters, #monthSelector, #chartTypeSelector {
+      width: 100%;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    /* frosted glass card for charts */
+    #charts {
+      background: var(--card-bg);
+      border-radius: 20px;
+      box-shadow: var(--box-shadow);
+      padding: 32px 24px;
+      margin-bottom: 32px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      border: 1px solid var(--card-border);
+      backdrop-filter: blur(var(--glass-blur)) saturate(110%);
+      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(110%);
+    }
+
+    #filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      justify-content: center;
+      margin-bottom: 18px;
+    }
+
+    #monthSelector, #chartTypeSelector {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    select, label {
+      font-size: 17px;
+      color: var(--text-color);
+      margin-bottom: 0;
+    }
+
+    /* glassy select */
+    select {
+      padding: 8px 16px;
+      border-radius: 12px;
+      border: 1px solid var(--card-border);
+      background: linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.06));
+      color: var(--text-color);
+      transition: border-color 0.2s, background 0.2s, transform 0.12s;
+      font-weight: 500;
+      backdrop-filter: blur(calc(var(--glass-blur) / 2));
+      -webkit-backdrop-filter: blur(calc(var(--glass-blur) / 2));
+      box-shadow: 0 6px 18px rgba(14,35,70,0.06);
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    select:focus, select:hover {
+      border-color: rgba(35,102,255,0.9);
+      outline: none;
+      transform: translateY(-2px);
+      background: linear-gradient(180deg, rgba(255,255,255,0.24), rgba(255,255,255,0.08));
+    }
+
+    input[type="checkbox"] {
+      accent-color: var(--primary-color);
+      margin-right: 8px;
+      transform: scale(1.2);
+    }
+
+    /* glassy floating buttons (icons) */
+    #buttonsContainer {
+      position: fixed;
+      top: 24px;
+      right: 24px;
+      display: flex;
+      gap: 14px;
+      z-index: 100;
+    }
+    button.icon-btn {
+      background: linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.08));
+      border: 1px solid rgba(255,255,255,0.35);
+      color: var(--text-color);
+      border-radius: 12px;
+      width: 48px;
+      height: 48px;
+      font-size: 20px;
+      cursor: pointer;
+      box-shadow: 0 6px 20px rgba(14,35,70,0.12);
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(var(--glass-blur)) saturate(120%);
+      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(120%);
+    }
+    button.icon-btn:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 36px rgba(14,35,70,0.16);
+    }
+
+    /* table as glass card */
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      background: var(--card-bg);
+      border-radius: 18px;
+      box-shadow: var(--box-shadow);
+      overflow: hidden;
+      font-size: 16px;
+      margin-bottom: 24px;
+      margin-top: 12px;
+      transition: box-shadow 0.2s;
+      border: 1px solid var(--card-border);
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+    }
+
+    thead th {
+      background: var(--header-bg);
+      color: var(--header-text);
+      font-weight: 700;
+      padding: 14px 16px;
+      border-bottom: 2px solid var(--border-color);
+      font-size: 1.05em;
+    }
+
+    tbody tr {
+      transition: background 0.18s;
+    }
+    tbody tr:nth-child(even) {
+      background: linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    }
+    tbody tr:hover {
+      background: var(--hover-bg);
+    }
+
+    td, th {
+      padding: 14px 16px;
+    }
+
+    .amount-income {
+      color: var(--income-color);
+      font-weight: 600;
+    }
+    .amount-expense {
+      color: var(--expense-color);
+      font-weight: 600;
+    }
+
+    /* loading overlay - slightly dimmed glass */
+    #loading {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(255,255,255,0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+    }
+    body.dark #loading {
+      background: rgba(0,0,0,0.45);
+    }
+
+    .spinner {
+      border: 4px solid rgba(255,255,255,0.7);
+      border-top: 4px solid var(--primary-color);
+      border-radius: 50%;
+      width: 48px;
+      height: 48px;
+      animation: spin 1s linear infinite;
+      box-shadow: 0 8px 30px rgba(14,35,70,0.12);
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg);}
+      100% { transform: rotate(360deg);}
+    }
+
+    #categoryTotal, #pieTotal {
+      font-size: 1.1rem;
+      color: var(--primary-color);
+      margin-top: 14px;
+      font-weight: 600;
+      text-align: center;
+    }
+
+    canvas#categoryChart {
+      max-width: 520px !important;
+      max-height: 420px !important;
+      box-shadow: var(--box-shadow);
+      border-radius: 12px;
+      background: rgba(255,255,255,0.04);
+      transition: box-shadow 0.2s;
+      border: 1px solid rgba(255,255,255,0.06);
+      backdrop-filter: blur(calc(var(--glass-blur) / 2));
+      -webkit-backdrop-filter: blur(calc(var(--glass-blur) / 2));
+    }
+    canvas#categoryChart:hover {
+      box-shadow: 0 8px 30px rgba(14,35,70,0.16);
+    }
+
+    #downloadModal {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.23);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 99999;
+    }
+    #downloadModalContent {
+      background: var(--card-bg);
+      box-shadow: 0 6px 28px rgba(14,35,70,0.12);
+      border-radius: 14px;
+      padding: 32px 36px;
+      text-align: center;
+      min-width: 280px;
+      border: 1px solid var(--card-border);
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+    }
+
+    #pdfPasswordInput {
+      width: 80%;
+      padding: 8px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-size: 1em;
+      display: none;
+      background: rgba(255,255,255,0.08);
+      color: var(--text-color);
+    }
+
+    #pdfModal {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.25);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 99999;
+    }
+    #pdfModalContent {
+      background: var(--card-bg);
+      box-shadow: 0 4px 24px rgba(14,35,70,0.12);
+      border-radius: 14px;
+      padding: 36px 48px;
+      text-align: center;
+      flex-direction: column;
+      display: flex;
+      align-items: center;
+      border: 1px solid var(--card-border);
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+    }
+
+    @media (max-width: 900px) {
+      #charts, table {
+        max-width: 100vw;
+        border-radius: 14px;
+      }
+    }
+    @media (max-width: 600px) {
+      h1 { font-size: 1.7rem; padding-top: 18px; }
+      #charts { padding: 16px 12px; }
+      table { font-size: 14px; }
+      thead, tbody, th, td, tr {
+        display: block;
+      }
+      thead tr {
+        position: absolute; top: -9999px; left: -9999px;
+      }
+      tbody tr {
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        margin-bottom: 7px;
+        padding: 10px 7px;
+        box-shadow: 0 1px 5px rgba(14,35,70,0.04);
+        background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+      }
+      td {
+        border: none;
+        padding-left: 50%;
+        position: relative;
+        font-size: 15px;
+        text-align: left;
+        color: var(--text-color);
+      }
+      td::before {
+        position: absolute;
+        top: 10px;
+        left: 12px;
+        width: 47%;
+        white-space: nowrap;
+        font-weight: 600;
+        color: var(--text-color);
+      }
+      td:nth-of-type(1)::before { content: "Date"; }
+      td:nth-of-type(2)::before { content: "Description"; }
+      td:nth-of-type(3)::before { content: "Category"; }
+      td:nth-of-type(4)::before { content: "Amount"; }
+      td:nth-of-type(5)::before { content: "Note"; }
+      canvas#categoryChart { max-width: 100% !important; max-height: 280px !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Finance Dashboard</h1>
+
+  <div id="buttonsContainer">
+    <button id="toggleDarkModeBtn" class="icon-btn" title="Toggle Dark Mode">🌙</button>
+    <button id="exportPdfBtn" class="icon-btn" title="Export Transactions as PDF">📄</button>
+  </div>
+
+  <div id="monthSelector">
+    <label for="monthDropdown">Select Month:
+      <select id="monthDropdown"></select>
+    </label>
+  </div>
+
+  <div id="chartTypeSelector">
+    <label for="chartTypeDropdown">Chart View:
+      <select id="chartTypeDropdown">
+        <option value="pie">Pie</option>
+        <option value="bar">Bar</option>
+        <option value="line">Line</option>
+      </select>
+    </label>
+  </div>
+
+  <div id="charts">
+    <div id="filters">
+      <label><input type="checkbox" id="toggleIncome" /> Include Income</label>
+    </div>
+    <canvas id="categoryChart"></canvas>
+    <div id="pieTotal"></div>
+  </div>
+
+  <h2>Transactions</h2>
+  <div id="filters">
+    <label>
+      Filter Table by Category:
+      <select id="categoryFilterTable">
+        <option value="all">All</option>
+      </select>
+    </label>
+  </div>
+
+  <div id="categoryTotal"></div>
+
+  <div id="loading"><div class="spinner"></div></div>
+
+  <table id="transactionsTable" style="display:none;">
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Description</th>
+        <th>Category</th>
+        <th>Amount</th>
+        <th>Note</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <!-- Download Confirmation Modal -->
+  <div id="downloadModal">
+    <div id="downloadModalContent">
+      <h3 style="margin-top:0;">Download Transactions PDF?</h3>
+      <label style="margin-top:18px;">
+        <input type="checkbox" id="pdfPasswordToggle"/> Add password protection
+      </label>
+      <input type="password" id="pdfPasswordInput" style="margin-top:10px;" placeholder="Enter password"/>
+      <div style="margin-top:24px;">
+        <button id="confirmDownloadBtn" style="padding:8px 20px;margin-right:16px;background:var(--primary-color);color:#fff;border:none;border-radius:6px;font-size:1em;cursor:pointer;">Download</button>
+        <button id="cancelDownloadBtn" style="padding:8px 16px;background:#eee;color:#444;border:none;border-radius:6px;font-size:1em;cursor:pointer;">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PDF Preparing Modal -->
+  <div id="pdfModal">
+    <div id="pdfModalContent">
+      <div class="spinner"></div>
+      <div style="margin-top:18px;font-size:1.1em;">Preparing PDF...</div>
+    </div>
+  </div>
+
+  <script>
+    // 1. Define the links for each month
+    const DATA_URLS = {
+      "July 2025": "https://script.google.com/macros/s/AKfycbwRsptroh2rcYEOupVPDB727IRTXDPsjFBqOc5r4DKtg5O3rbRxsa5XHO23Uhe8vgwjRA/exec",
+      "August 2025": "https://script.google.com/macros/s/AKfycbzlNFkO3L2bINeBlQctDz1aKObXAmcK2Edspis1mXuawk8yOJhHcdz6yUadjMjVSfEC3w/exec",
+      "September 2025": "https://script.google.com/macros/s/AKfycbzwn_JwguWEvuICR0xKxtH5kc2_nKch3O5oFor5WNLAy97qJBFePNiWv4OW6GmKQBGhkg/exec",
+      "October 2025": "https://script.google.com/macros/s/AKfycbwZEjZP_uhUyXdRP4B2nL5qn-Lt8fZT27_UknvdWtdfRTTa4aGawy6H4-qjMb39P4qt/exec",
+      "November 2025": "https://script.google.com/macros/s/AKfycbxGS-I6NSWNWN-T2b9o8Egzn-0eVyLPCr0_wUEHLe2ByFchODpe4SMuSJzLs97I0CjV/exec",
+      "December 2025": "https://script.google.com/macros/s/AKfycbxgTQRyxTFqMw6bvNVpJYXZ343NDh01fB-bD_yXedyGrR-xVvE7BFTDT8KlR_jAwcmx/exec",
+      "January 2026": "https://script.google.com/macros/s/AKfycbzaewJvdCNMuAPmhYCyj6Nx4TBumCEXGgVJrIqS6hZBQoDaK9pysAGcuRPgX_2qMH_9/exec",
+      "February 2026": "https://script.google.com/macros/s/AKfycbwPkL_T_Ho3bkRACoS5UJ4t7u7pNZ3MKVWl0Mm1xB1Tl-EkBTCRR-i3AmAHvl0qmdipJg/exec",
+      "March 2026": "https://script.google.com/macros/s/AKfycby8LSJMStIbNkVWy9ShzdeHPbmR92oYsQddZRtJfjkR8rL1CUO-g0ZTTQjkoHYtzIxcSw/exec",
+      "April 2026": "https://script.google.com/macros/s/AKfycbxIkuEhQw7yJGAc2QYXVgeLh4YLhN5J2cupXfIAHHdL0nm7c29jK7RbCnCbVYi505MB/exec"
+      // Add more here as needed
+    };
+
+    const ALL_MONTHS_LABEL = "All Months";
+
+    function getCurrentMonthLabel() {
+      const now = new Date();
+      const monthNames = [
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"
+      ];
+      const label = `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
+      if (DATA_URLS[label]) return label;
+      return ALL_MONTHS_LABEL;
+    }
+
+    let currentMonth = getCurrentMonthLabel();
+    let DATA_URL = (currentMonth === ALL_MONTHS_LABEL) ? null : DATA_URLS[currentMonth];
+    let currentChartType = "pie";
+
+    let chartInstance;
+    let globalSummary = {};
+    let globalTransactions = [];
+
+    const toggleIncome = document.getElementById("toggleIncome");
+    const categoryFilterTable = document.getElementById("categoryFilterTable");
+    const categoryTotalDiv = document.getElementById("categoryTotal");
+    const pieTotalDiv = document.getElementById("pieTotal");
+    const toggleDarkModeBtn = document.getElementById("toggleDarkModeBtn");
+    const exportPdfBtn = document.getElementById("exportPdfBtn");
+    const monthDropdown = document.getElementById("monthDropdown");
+    const chartTypeDropdown = document.getElementById("chartTypeDropdown");
+
+    // Modal controls
+    const downloadModal = document.getElementById('downloadModal');
+    const pdfPasswordToggle = document.getElementById('pdfPasswordToggle');
+    const pdfPasswordInput = document.getElementById('pdfPasswordInput');
+    const confirmDownloadBtn = document.getElementById('confirmDownloadBtn');
+    const cancelDownloadBtn = document.getElementById('cancelDownloadBtn');
+    const pdfModal = document.getElementById('pdfModal');
+
+    function populateMonthDropdown() {
+      monthDropdown.innerHTML = "";
+      const allOption = document.createElement("option");
+      allOption.value = ALL_MONTHS_LABEL;
+      allOption.textContent = ALL_MONTHS_LABEL;
+      monthDropdown.appendChild(allOption);
+      Object.keys(DATA_URLS).forEach(month => {
+        const option = document.createElement("option");
+        option.value = month;
+        option.textContent = month;
+        monthDropdown.appendChild(option);
+      });
+      monthDropdown.value = currentMonth;
+    }
+
+    // Helper for PDF: get the range of months shown in DATA_URLS
+    function getMonthRangeString() {
+      const months = Object.keys(DATA_URLS);
+      if (!months.length) return "";
+      const monthOrder = [
+        "January","February","March","April","May","June","July","August","September","October","November","December"
+      ];
+      months.sort((a,b)=>{
+        const [am,ay] = a.split(" ");
+        const [bm,by] = b.split(" ");
+        if (ay !== by) return parseInt(ay,10)-parseInt(by,10);
+        return monthOrder.indexOf(am)-monthOrder.indexOf(bm);
+      });
+      const first = months[0].split(" ");
+      const last  = months[months.length-1].split(" ");
+      if (first[1] === last[1]) {
+        return `${first[1]}_${first[0]} to ${last[0]}`;
+      }
+      return `${first[1]}_${first[0]} to ${last[1]}_${last[0]}`;
+    }
+
+    function getMonthRangeStringHuman() {
+      const months = Object.keys(DATA_URLS);
+      if (!months.length) return "";
+      const monthOrder = [
+        "January","February","March","April","May","June","July","August","September","October","November","December"
+      ];
+      months.sort((a,b)=>{
+        const [am,ay] = a.split(" ");
+        const [bm,by] = b.split(" ");
+        if (ay !== by) return parseInt(ay,10)-parseInt(by,10);
+        return monthOrder.indexOf(am)-monthOrder.indexOf(bm);
+      });
+      const first = months[0].split(" ");
+      const last  = months[months.length-1].split(" ");
+      if (first[1] === last[1]) {
+        return `${first[1]} ${first[0]} to ${last[0]}`;
+      }
+      return `${first[1]} ${first[0]} to ${last[1]} ${last[0]}`;
+    }
+
+    async function fetchData() {
+      if (currentMonth === ALL_MONTHS_LABEL) {
+        const promises = Object.values(DATA_URLS).map(url =>
+          fetch(url)
+            .then(res => res.ok ? res.json() : null)
+            .catch(() => null)
+        );
+        const results = await Promise.all(promises);
+        const validResults = results.filter(r => r && r.summary && r.transactions);
+        const combinedSummary = {};
+        const combinedTransactions = [];
+        validResults.forEach(({ summary, transactions }) => {
+          Object.entries(summary).forEach(([cat, value]) => {
+            if (!combinedSummary[cat]) {
+              combinedSummary[cat] = 0;
+            }
+            combinedSummary[cat] += parseFloat(value);
+          });
+          transactions.forEach(tx => combinedTransactions.push(tx));
+        });
+        combinedTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+        return { summary: combinedSummary, transactions: combinedTransactions };
+      } else {
+        const url = DATA_URLS[currentMonth];
+        try {
+          const res = await fetch(url);
+          if (!res.ok) throw new Error("Failed to fetch data");
+          return await res.json();
+        } catch (err) {
+          alert("Error: " + err.message);
+          return null;
+        }
+      }
+    }
+
+    // --- PDF Export section ---
+    function exportTableToPDF(password = null) {
+      pdfModal.style.display = 'flex';
+      setTimeout(() => {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        // --- 1. Gather context ---
+        const selectedCategory = categoryFilterTable.value;
+        const selectedMonthLabel = monthDropdown.value;
+
+        let pdfName = "";
+        let watermark = "";
+
+        // All Months case
+        if (selectedMonthLabel === ALL_MONTHS_LABEL) {
+          const rangeHuman = getMonthRangeStringHuman();
+          const rangeFile = getMonthRangeString().replace(/ /g, "_");
+          if (selectedCategory === "all") {
+            pdfName = `${rangeFile}_Transactions.pdf`;
+            watermark = `Transactions - (${rangeHuman})`;
+          } else {
+            pdfName = `${rangeFile}_Transactions_for_${selectedCategory}.pdf`;
+            watermark = `Transactions - (${rangeHuman}, ${selectedCategory})`;
+          }
+        } else {
+          // Single month case
+          let year, monthName;
+          [monthName, year] = selectedMonthLabel.split(" ");
+          if (selectedCategory === "all") {
+            pdfName = `${year}_${monthName}_Transactions.pdf`;
+            watermark = `Transactions - (${year} ${monthName})`;
+          } else {
+            pdfName = `${year}_${monthName}_Transactions_for_${selectedCategory}.pdf`;
+            watermark = `Transactions - (${year} ${monthName}, ${selectedCategory})`;
+          }
+        }
+
+        // --- 2. Filter transactions for export ---
+        const rows = [];
+        document.querySelectorAll('#transactionsTable tbody tr').forEach(tr => {
+          if (tr.style.display !== 'none') {
+            const tds = tr.querySelectorAll('td');
+            rows.push({
+              date: tds[0].textContent,
+              name: tds[1].textContent,
+              category: tds[2].textContent,
+              amount: tds[3].textContent,
+              note: tds[4].textContent
+            });
+          }
+        });
+
+        if (rows.length === 0) {
+          alert("No transactions to export!");
+          pdfModal.style.display = 'none';
+          return;
+        }
+
+        // --- 3. Watermark / Title ---
+        doc.setFontSize(10);
+        doc.setTextColor(180);
+        doc.text(watermark, 200, 12, { align: 'right' });
+
+        doc.setFontSize(16);
+        doc.setTextColor(44, 62, 80);
+        doc.text("Finance Dashboard Transactions", 14, 20);
+
+        // --- 4. Table ---
+        doc.autoTable({
+          columns: [
+            { header: 'Date', dataKey: 'date' },
+            { header: 'Name', dataKey: 'name' },
+            { header: 'Category', dataKey: 'category' },
+            { header: 'Amount', dataKey: 'amount' },
+            { header: 'Note', dataKey: 'note' }
+          ],
+          body: rows,
+          startY: 30,
+          styles: { fontSize: 10 },
+          headStyles: { fillColor: [44, 62, 80], textColor: 255 },
+          alternateRowStyles: { fillColor: [240, 240, 240] }
+        });
+
+        // --- 5. Summary Section: Only total from page ---
+        let summaryY = doc.lastAutoTable.finalY + 12;
+        doc.setFontSize(13);
+        doc.setTextColor(44, 62, 80);
+        doc.text("Summary", 14, summaryY);
+
+        let pageTotal = categoryTotalDiv.textContent || "";
+        if (!pageTotal) {
+          pageTotal = pieTotalDiv.textContent || "";
+        }
+        doc.setFontSize(11);
+        doc.setTextColor(80);
+        doc.text(`• ${pageTotal}`, 18, summaryY + 9);
+
+        // --- 6. Footer with correct page numbers ---
+        const pageCount = doc.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
+          doc.setPage(i);
+          doc.setFontSize(10);
+          doc.setTextColor(180);
+          doc.text(`${i} of ${pageCount}`, 14, 285, {align: 'left'});
+          doc.text('Created by Dasith', 200, 285, {align: 'right'});
+        }
+
+        // --- 7. Password protection ---
+        if (password && doc.protect) {
+          doc.protect({
+            userPassword: password,
+            ownerPassword: password,
+            permissions: {
+              printing: 'highResolution',
+              modifying: false,
+              copying: false,
+            },
+          });
+        } else if (password) {
+          alert("Password protection is not supported in this browser. PDF will be downloaded without password.");
+        }
+
+        doc.save(pdfName);
+        pdfModal.style.display = 'none';
+      }, 500);
+    }
+
+    // --- rest of JS unchanged ---
+    function renderChart(includeIncome = false) {
+      const labels = [];
+      const values = [];
+      const colors = [
+        '#FF6384', '#36A2EB', '#FFCE56', '#8BC34A', '#FF7043',
+        '#7E57C2', '#26A69A', '#FFB300', '#8D6E63', '#789262'
+      ];
+      const bgColors = [];
+      let colorIndex = 0;
+      let totalAmount = 0;
+
+      for (let [category, value] of Object.entries(globalSummary)) {
+        const cat = category.trim().toLowerCase();
+        if (!includeIncome && cat === 'income') continue;
+        labels.push(category);
+        values.push(value);
+        totalAmount += parseFloat(value);
+        bgColors.push(colors[colorIndex++ % colors.length]);
+      }
+
+      if (chartInstance) chartInstance.destroy();
+
+      const ctx = document.getElementById('categoryChart').getContext('2d');
+      let chartConfig;
+      if (currentChartType === "pie") {
+        chartConfig = {
+          type: 'pie',
+          data: {
+            labels: labels,
+            datasets: [{
+              data: values,
+              backgroundColor: bgColors
+            }]
+          },
+          options: {
+            animation: {
+              duration: 800,
+              easing: 'easeOutQuart'
+            },
+            responsive: true,
+            plugins: {
+              legend: { position: 'right' },
+              title: {
+                display: true,
+                text: 'Spending by Category',
+                font: { size: 18 }
+              }
+            }
+          }
+        };
+      } else if (currentChartType === "bar") {
+        chartConfig = {
+          type: 'bar',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Amount',
+              data: values,
+              backgroundColor: bgColors
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { display: false },
+              title: {
+                display: true,
+                text: 'Spending by Category',
+                font: { size: 18 }
+              }
+            },
+            scales: {
+              y: {
+                beginAtZero: true
+              }
+            }
+          }
+        };
+      } else if (currentChartType === "line") {
+        chartConfig = {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Amount',
+              data: values,
+              fill: false,
+              borderColor: '#3498db',
+              backgroundColor: '#3498db',
+              tension: 0.3
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { display: false },
+              title: {
+                display: true,
+                text: 'Spending by Category',
+                font: { size: 18 }
+              }
+            },
+            scales: {
+              y: {
+                beginAtZero: true
+              }
+            }
+          }
+        };
+      }
+
+      chartInstance = new Chart(ctx, chartConfig);
+
+      if (includeIncome) {
+        const income = parseFloat(globalSummary['Income'] || 0);
+        const expenses = Object.entries(globalSummary)
+          .filter(([cat]) => cat.trim().toLowerCase() !== 'income')
+          .reduce((sum, [, val]) => sum + parseFloat(val), 0);
+        const net = income - expenses;
+        pieTotalDiv.innerHTML = `Balance (Income - Expenses): Rs. ${net.toLocaleString()}`;
+      } else {
+        pieTotalDiv.innerHTML = `Total Expenses: Rs. ${totalAmount.toLocaleString()}`;
+      }
+    }
+
+    function populateCategoryFilters(categories) {
+      categoryFilterTable.innerHTML = `<option value="all">All</option>`;
+      categories.forEach(cat => {
+        const opt = document.createElement('option');
+        opt.value = cat;
+        opt.textContent = cat;
+        categoryFilterTable.appendChild(opt);
+      });
+    }
+
+    function populateTransactionsTable(transactions) {
+      const tbody = document.querySelector('#transactionsTable tbody');
+      tbody.innerHTML = "";
+
+      if (transactions.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center">No transactions available</td></tr>`;
+        return;
+      }
+
+      transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+      transactions.forEach(tx => {
+        const tr = document.createElement('tr');
+        const amount = parseFloat(tx.amount);
+        const cat = tx.category.trim().toLowerCase();
+        const isIncome = cat === 'income';
+        const amountClass = isIncome ? 'amount-income' : 'amount-expense';
+        tr.setAttribute("data-category", tx.category);
+        tr.innerHTML = `
+          <td>${tx.date}</td>
+          <td>${tx.name}</td>
+          <td>${tx.category}</td>
+          <td class="${amountClass}">Rs. ${amount.toLocaleString()}</td>
+          <td>${tx.note || ''}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function filterTable(category) {
+      const rows = document.querySelectorAll('#transactionsTable tbody tr');
+
+      rows.forEach(row => {
+        row.style.display = (category === "all" || row.getAttribute("data-category") === category)
+          ? ""
+          : "none";
+      });
+
+      if (category.toLowerCase() === "income") {
+        const total = globalSummary[category] || 0;
+        categoryTotalDiv.innerHTML = `Total Income: Rs. ${parseFloat(total).toLocaleString()}`;
+      } else if (category === "all") {
+        categoryTotalDiv.innerHTML = "";
+      } else {
+        const total = globalSummary[category] || 0;
+        categoryTotalDiv.innerHTML = `Total: Rs. ${parseFloat(total).toLocaleString()}`;
+      }
+    }
+
+    function toggleDarkMode() {
+      document.body.classList.toggle('dark');
+      if (document.body.classList.contains('dark')) {
+        toggleDarkModeBtn.textContent = '☀️';
+        toggleDarkModeBtn.title = 'Switch to Light Mode';
+      } else {
+        toggleDarkModeBtn.textContent = '🌙';
+        toggleDarkModeBtn.title = 'Switch to Dark Mode';
+      }
+    }
+
+    exportPdfBtn.addEventListener("click", () => {
+      pdfPasswordInput.value = "";
+      pdfPasswordInput.style.display = "none";
+      pdfPasswordToggle.checked = false;
+      downloadModal.style.display = 'flex';
+    });
+
+    pdfPasswordToggle.addEventListener("change", () => {
+      pdfPasswordInput.style.display = pdfPasswordToggle.checked ? "block" : "none";
+    });
+
+    cancelDownloadBtn.addEventListener("click", () => {
+      downloadModal.style.display = "none";
+    });
+
+    confirmDownloadBtn.addEventListener("click", () => {
+      downloadModal.style.display = "none";
+      exportTableToPDF(pdfPasswordToggle.checked ? pdfPasswordInput.value : null);
+    });
+
+    async function init() {
+      document.getElementById('loading').style.display = 'flex';
+      document.getElementById('transactionsTable').style.display = 'none';
+      const data = await fetchData();
+      if (!data) return;
+
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('transactionsTable').style.display = 'table';
+
+      globalSummary = data.summary;
+      globalTransactions = data.transactions;
+
+      const categories = Object.keys(globalSummary);
+      populateCategoryFilters(categories);
+
+      renderChart(toggleIncome.checked);
+      populateTransactionsTable(globalTransactions);
+      filterTable(categoryFilterTable.value);
+    }
+
+    // Event listeners
+    toggleIncome.addEventListener("change", () => {
+      renderChart(toggleIncome.checked);
+    });
+
+    categoryFilterTable.addEventListener("change", () => {
+      filterTable(categoryFilterTable.value);
+    });
+
+    toggleDarkModeBtn.addEventListener("click", toggleDarkMode);
+
+    monthDropdown.addEventListener("change", () => {
+      currentMonth = monthDropdown.value;
+      DATA_URL = (currentMonth === ALL_MONTHS_LABEL) ? null : DATA_URLS[currentMonth];
+      init();
+    });
+
+    chartTypeDropdown.addEventListener("change", () => {
+      currentChartType = chartTypeDropdown.value;
+      renderChart(toggleIncome.checked);
+    });
+
+    populateMonthDropdown();
+    init();
+  </script>
+</body>
+</html>
